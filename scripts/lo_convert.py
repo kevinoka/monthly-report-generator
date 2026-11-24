@@ -31,7 +31,7 @@ def main(src: str, dst: str, soffice: str = "soffice") -> None:
     pipe = f"mrg-{uuid.uuid4().hex}"
     proc = subprocess.Popen(
         [soffice, "--headless", "--invisible", "--nologo", "--norestore", "--nodefault",
-         f"-env:UserInstallation=file://{profile}", f"--accept=pipe,name={pipe};urp;"],
+         f"-env:UserInstallation={Path(profile).as_uri()}", f"--accept=pipe,name={pipe};urp;"],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
     try:

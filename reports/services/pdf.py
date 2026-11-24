@@ -32,7 +32,7 @@ def docx_to_pdf(docx_path: Path, pdf_path: Path) -> None:
     with tempfile.TemporaryDirectory() as profile, tempfile.TemporaryDirectory() as outdir:
         try:
             subprocess.run(
-                [settings.LIBREOFFICE_BINARY, "--headless", f"-env:UserInstallation=file://{profile}",
+                [settings.LIBREOFFICE_BINARY, "--headless", f"-env:UserInstallation={Path(profile).as_uri()}",
                  "--convert-to", "pdf", "--outdir", outdir, str(docx_path)],
                 check=True, capture_output=True, timeout=timeout,
             )

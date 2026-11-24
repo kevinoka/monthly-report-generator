@@ -191,7 +191,12 @@ FORECAST_UNDERUTILISED_P95 = float(env("FORECAST_UNDERUTILISED_P95", "20"))
 
 # --- PDF conversion (LibreOffice). UNO_PYTHON must be a Python that can `import uno`.
 LIBREOFFICE_BINARY = env("LIBREOFFICE_BINARY", "soffice")
-UNO_PYTHON = env("UNO_PYTHON", "/usr/bin/python3")
+_LO_WIN = Path(r"C:\Program Files\LibreOffice\program")
+if os.name == "nt" and _LO_WIN.exists():  # LibreOffice on Windows ships its own Python with UNO
+    LIBREOFFICE_BINARY = env("LIBREOFFICE_BINARY", str(_LO_WIN / "soffice.exe"))
+    UNO_PYTHON = env("UNO_PYTHON", str(_LO_WIN / "python.exe"))
+else:
+    UNO_PYTHON = env("UNO_PYTHON", "/usr/bin/python3")
 PDF_TIMEOUT_SECONDS = int(env("PDF_TIMEOUT_SECONDS", "180"))
 
 # --- E-mail

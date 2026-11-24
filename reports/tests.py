@@ -1,3 +1,4 @@
+import io
 import shutil
 import tempfile
 from datetime import date
@@ -90,7 +91,7 @@ class EndToEndTests(TestCase):
         super().tearDownClass()
 
     def setUp(self):
-        call_command("seed_demo", stdout=open("/dev/null", "w"))
+        call_command("seed_demo", stdout=io.StringIO())
         self.project = Project.objects.get(short_name="XYZ")
 
     @classmethod
