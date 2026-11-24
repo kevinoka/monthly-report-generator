@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-report}
+      POSTGRES_USER: ${POSTGRES_USER:-report}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    restart: unless-stopped
+
+  web:
+    build: .
+    env_file: .env
+    depends_on: [db]
+    ports: ["8000:8000"]
+    volumes: [media:/app/media]
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  media:

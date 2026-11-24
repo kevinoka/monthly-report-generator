@@ -1,0 +1,73 @@
+{% extends "reports/base.html" %}
+{% block head %}{% if run.is_busy %}<meta http-equiv="refresh" content="4">{% endif %}{% endblock %}
+{% block content %}
+<div class="row" style="justify-content:space-between">
+  <h1 style="margin:0">{{ run.project.client.name }} / {{ run.project.name }} - {{ run.period|date:"F Y" }}</h1>
+  <span class="badge s-{{ run.status }}">{{ run.get_status_display }}</span>
+</div>
+<p class="muted">Dibuat {{ run.created_at|date:"d/m/Y H:i" }} oleh {{ run.created_by|default:"jadwal otomatis" }}
+  {% if run.approved_at %} · disetujui {{ run.approved_at|date:"d/m/Y H:i" }} oleh {{ run.approved_by }}{% endif %}
+  {% if run.sent_at %} · dikirim {{ run.sent_at|date:"d/m/Y H:i" }} ke {{ run.sent_to }}{% endif %}</p>
+
+{% if run.is_busy %}
+  <div class="card">Laporan sedang dibuat, halaman ini akan diperbarui otomatis.<pre>{{ run.log }}</pre></div>
+{% elif run.status == "failed" %}
+  <div class="card"><div class="msg error">{{ run.error }}</div><details><summary>Log</summary><pre>{{ run.log }}</pre></details></div>
+{% endif %}
+
+<div class="row" style="margin:16px 0">
+  {% if run.pdf_file %}<a class="btn" href="{% url 'reports:download' run.pk 'pdf' %}">Unduh PDF</a>{% endif %}
+  {% if run.docx_file %}<a class="btn" href="{% url 'reports:download' run.pk 'docx' %}">Unduh DOCX (untuk edit)</a>{% endif %}
+  {% if can_generate and not run.is_busy %}
+    <form method="post" action="{% url 'reports:regenerate' run.pk %}">{% csrf_token %}<button class="btn">Generate ulang</button></form>
+  {% endif %}
+  {% if can_approve and run.status == "generated" %}
+    <form method="post" action="{% url 'reports:approve' run.pk %}">{% csrf_token %}<button class="btn primary">Approve</button></form>
+  {% endif %}
+</div>
+
+{% if run.status == "approved" and can_send %}
+<div class="card">
+  <h2 style="margin-top:0">Kirim ke pelanggan</h2>
+  <p>To: <strong>{{ run.project.recipients_to }}</strong>{% if run.project.recipients_cc %}<br>CC: {{ run.project.recipients_cc }}{% endif %}</p>
+  {% for p in send_problems %}<div class="msg error">{{ p }}</div>{% endfor %}
+  <form method="post" action="{% url 'reports:send' run.pk %}">{% csrf_token %}
+    <p><label>{{ send_form.confirm }} {{ send_form.confirm.label }}</label></p>
+    <button class="btn primary" {% if send_problems %}disabled{% endif %}>Kirim email</button>
+  </form>
+</div>
+{% endif %}
+
+{% with s=run.summary %}{% if s.sla %}
+<div class="grid">
+  <div class="card stat"><div class="v">{{ s.sla.actual }}%</div><div class="l">Availability (target {{ s.sla.target }}%)</div></div>
+  <div class="card stat"><div class="v">{{ s.sla.downtime_minutes }}</div><div class="l">Menit downtime dihitung</div></div>
+  <div class="card stat"><div class="v">{{ s.tickets.incidents }}</div><div class="l">Insiden</div></div>
+  <div class="card stat"><div class="v">{{ s.tickets.requests }}</div><div class="l">Permintaan</div></div>
+</div>
+{% if s.data_source == "demo" %}<div class="msg warning">Laporan ini memakai DATA DEMO (DATA_SOURCE_MODE=demo), bukan data Prometheus/Jira.</div>{% endif %}
+
+<h2>Prakiraan &amp; akurasi model</h2>
+<p class="muted">MAE = rata-rata selisih absolut (poin persen) saat model diuji pada hari-hari terakhir data historis.
+  Model dipilih otomatis bila lebih akurat dari baseline naive.</p>
+<div class="scroll"><table>
+  <thead><tr><th>Resource</th><th>Metrik</th><th class="num">Rata-rata</th><th class="num">Puncak</th>
+    <th>Model</th><th class="num">Histori (hari)</th><th class="num">Horizon</th><th class="num">MAE model</th><th class="num">MAE naive</th><th>Status</th></tr></thead>
+  <tbody>
+  {% for comp, ms in s.components.items %}{% for m, v in ms.items %}
+    <tr><td>{{ comp }}</td><td>{{ m }}</td>
+      <td class="num">{{ v.avg|floatformat:1 }}</td><td class="num">{{ v.peak|floatformat:1 }}</td>
+      <td>{{ v.model|default:"-" }}</td><td class="num">{{ v.history_days }}</td><td class="num">{{ v.horizon_days }}</td>
+      <td class="num">{{ v.mae|floatformat:2 }}</td><td class="num">{{ v.naive_mae|floatformat:2 }}</td>
+      <td class="st-{{ v.status|cut:' Perhatian' }}">{{ v.status }}</td></tr>
+  {% endfor %}{% endfor %}
+  </tbody>
+</table></div>
+{% endif %}{% endwith %}
+
+{% if run.pdf_file %}
+<h2>Pratinjau</h2>
+<iframe src="{% url 'reports:download' run.pk 'pdf' %}?inline=1" title="Pratinjau PDF"></iframe>
+{% endif %}
+{% if run.log and not run.is_busy and run.status != "failed" %}<details style="margin-top:16px"><summary>Log proses</summary><pre>{{ run.log }}</pre></details>{% endif %}
+{% endblock %}

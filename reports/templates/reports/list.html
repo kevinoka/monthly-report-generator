@@ -1,0 +1,32 @@
+{% extends "reports/base.html" %}
+{% block content %}
+<div class="row" style="justify-content:space-between;margin-bottom:16px">
+  <h1 style="margin:0">Laporan bulanan</h1>
+  {% if perms.reports.add_reportrun %}<a class="btn primary" href="{% url 'reports:generate' %}">Generate laporan</a>{% endif %}
+</div>
+<form class="row" method="get" style="margin-bottom:12px">
+  <select name="client"><option value="">Semua client</option>
+    {% for c in clients %}<option value="{{ c.pk }}" {% if client_id == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
+  </select>
+  <input name="q" value="{{ q }}" placeholder="Cari project / client">
+  <button class="btn" type="submit">Filter</button>
+</form>
+<div class="scroll"><table>
+  <thead><tr><th>Periode</th><th>Client</th><th>Project</th><th>Status</th><th>SLA</th><th>Dibuat</th><th></th></tr></thead>
+  <tbody>
+  {% for r in runs %}
+    <tr>
+      <td>{{ r.period|date:"F Y" }}</td>
+      <td>{{ r.project.client.name }}</td>
+      <td>{{ r.project.name }}</td>
+      <td><span class="badge s-{{ r.status }}">{{ r.get_status_display }}</span></td>
+      <td class="num">{% if r.summary.sla %}{{ r.summary.sla.actual }}%{% else %}-{% endif %}</td>
+      <td class="muted">{{ r.created_at|date:"d/m/Y H:i" }}<br>{{ r.created_by|default:"jadwal otomatis" }}</td>
+      <td><a href="{% url 'reports:detail' r.pk %}">Buka</a></td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="7" class="muted">Belum ada laporan.</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% endblock %}

@@ -1,0 +1,125 @@
+"""Chart rendering (matplotlib -> PNG) for the report.
+
+Charts are drawn from the same numbers used in the tables and forecasts, so
+everything in the report is consistent. Light theme for print.
+"""
+from __future__ import annotations
+
+from io import BytesIO
+
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.dates as mdates  # noqa: E402
+import matplotlib.pyplot as plt  # noqa: E402
+import pandas as pd  # noqa: E402
+
+from .formatting import num  # noqa: E402
+
+SURFACE = "#fcfcfb"
+TEXT = "#0b0b0b"
+TEXT_2 = "#52514e"
+GRID = "#e4e3df"
+SERIES = "#2a78d6"
+FORECAST_BAND = "#2a78d6"
+THRESH_ATT = "#c98500"
+THRESH_CRIT = "#e34948"
+DPI = 200
+WIDTH_IN = 6.2
+TZ = "Asia/Jakarta"
+
+plt.rcParams.update({
+    "font.family": ["Inter", "DejaVu Sans"],
+    "font.size": 7,
+    "axes.edgecolor": GRID,
+    "axes.labelcolor": TEXT_2,
+    "xtick.color": TEXT_2,
+    "ytick.color": TEXT_2,
+    "axes.titlecolor": TEXT,
+})
+
+
+def _axes_style(ax):
+    ax.set_facecolor(SURFACE)
+    ax.grid(axis="y", color=GRID, linewidth=0.6)
+    ax.set_axisbelow(True)
+    for side in ("top", "right", "left"):
+        ax.spines[side].set_visible(False)
+    ax.tick_params(length=0)
+
+
+def _png(fig) -> BytesIO:
+    buf = BytesIO()
+    fig.savefig(buf, format="png", dpi=DPI, facecolor=SURFACE)
+    plt.close(fig)
+    buf.seek(0)
+    return buf
+
+
+def usage_chart(series: pd.Series, title: str, unit_note: str = "%") -> BytesIO:
+    """One metric over the reporting month, with average and peak annotated."""
+    fig, ax = plt.subplots(figsize=(WIDTH_IN, 1.75))
+    fig.patch.set_facecolor(SURFACE)
+    _axes_style(ax)
+    s = series.dropna()
+    if s.empty:
+        ax.text(0.5, 0.5, "Data tidak tersedia", ha="center", va="center", color=TEXT_2, transform=ax.transAxes)
+        ax.set_yticks([])
+        ax.set_xticks([])
+    else:
+        s = s.tz_convert(TZ)
+        ax.plot(s.index, s.values, color=SERIES, linewidth=0.9)
+        ax.fill_between(s.index, s.values, color=SERIES, alpha=0.08, linewidth=0)
+        avg, peak_t, peak = s.mean(), s.idxmax(), s.max()
+        ax.axhline(avg, color=TEXT_2, linewidth=0.6, linestyle=(0, (3, 3)))
+        ax.annotate(f"rata-rata {num(avg)}{unit_note}", (s.index[0], avg), xytext=(2, 3),
+                    textcoords="offset points", fontsize=6.5, color=TEXT_2)
+        ax.plot([peak_t], [peak], marker="o", markersize=3.5, color=SERIES,
+                markeredgecolor=SURFACE, markeredgewidth=1)
+        ax.annotate(f"puncak {num(peak)}{unit_note}", (peak_t, peak), xytext=(4, -2),
+                    textcoords="offset points", fontsize=6.5, color=TEXT, va="top")
+        top = max(100.0, peak * 1.08) if unit_note == "%" else peak * 1.1
+        ax.set_ylim(0, top)
+        ax.set_xlim(s.index[0], s.index[-1])
+        ax.xaxis.set_major_locator(mdates.DayLocator(interval=2, tz=s.index.tz))
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%d", tz=s.index.tz))
+        ax.set_xlabel("Tanggal", fontsize=6.5)
+    ax.set_title(title, loc="left", fontsize=7.5, fontweight="bold", pad=4)
+    fig.tight_layout(pad=0.4)
+    return _png(fig)
+
+
+def forecast_chart(panels: list[dict]) -> BytesIO:
+    """Small multiples: one panel per metric, daily p95 history + forecast + 80% upper bound.
+
+    Each panel dict: title, hist (Series daily p95), fc (Series), upper (Series),
+    attention, critical (thresholds) - fc/upper may be empty when no forecast.
+    """
+    fig, axes = plt.subplots(1, len(panels), figsize=(WIDTH_IN, 1.9), sharey=False)
+    fig.patch.set_facecolor(SURFACE)
+    for ax, p in zip(axes, panels):
+        _axes_style(ax)
+        hist = p["hist"].tail(45)
+        if hist.empty:
+            ax.text(0.5, 0.5, "Data tidak tersedia", ha="center", va="center", color=TEXT_2, transform=ax.transAxes)
+            ax.set_xticks([])
+        else:
+            ax.plot(hist.index, hist.values, color=SERIES, linewidth=1.2)
+            fc, upper = p["fc"], p["upper"]
+            if not fc.empty:
+                bridge = pd.concat([hist.tail(1), fc])
+                ax.plot(bridge.index, bridge.values, color=SERIES, linewidth=1.2, linestyle=(0, (3, 2)))
+                ax.fill_between(fc.index, fc.values, upper.values, color=FORECAST_BAND, alpha=0.12, linewidth=0)
+                ax.axvline(hist.index[-1], color=TEXT_2, linewidth=0.5)
+            peak = max(hist.max(), upper.max() if not upper.empty else 0)
+            ax.set_ylim(0, max(100.0, peak * 1.08))
+            for thr, color in ((p["attention"], THRESH_ATT), (p["critical"], THRESH_CRIT)):
+                ax.axhline(thr, color=color, linewidth=0.6, linestyle=(0, (1, 2)))
+            ax.xaxis.set_major_locator(mdates.MonthLocator())
+            ax.xaxis.set_major_formatter(mdates.DateFormatter("%b"))
+            ax.tick_params(axis="both", labelsize=6)
+        ax.set_title(p["title"], loc="left", fontsize=7.5, fontweight="bold", pad=4)
+    fig.text(0.005, 0.01, "Garis utuh: puncak harian (p95) aktual · putus-putus: prakiraan · area: batas atas 80% "
+             "· garis titik: ambang perhatian/kritis", fontsize=5.8, color=TEXT_2)
+    fig.tight_layout(pad=0.4, rect=(0, 0.06, 1, 1))
+    return _png(fig)
