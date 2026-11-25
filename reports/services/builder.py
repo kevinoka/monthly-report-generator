@@ -181,7 +181,7 @@ def build_report(run: ReportRun) -> None:
         "doc_version": "1.0",
         "doc_date": long_date(timezone.localdate()),
         "doc_description": "Initial document",
-        "prepared_by": (user.get_full_name() or user.get_username()) if user else "Sistem (otomatis)",
+        "prepared_by": (user.get_full_name() or user.get_username()) if user else settings.REPORT_PREPARED_BY,
         "summary_paragraphs": narrative.executive_summary(
             project.name, run.period, sla, len(incidents), len(requests_), flagged, under),
         "sla": {

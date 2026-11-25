@@ -5,7 +5,7 @@ in the text is guaranteed to match the tables. No data leaves the server.
 """
 from __future__ import annotations
 
-from .forecasting import METRIC_LABELS, MODEL_LABELS, Assessment, Forecast, MonthStats
+from .forecasting import METRIC_LABELS, Assessment, Forecast, MonthStats
 from .formatting import datetime_id, month_year, pct, sla_pct
 
 
@@ -76,7 +76,6 @@ def forecast_intro(horizon_days: int | None) -> str:
 
 
 def forecast_note(models_used: set[str]) -> str:
-    names = ", ".join(sorted(MODEL_LABELS[m] for m in models_used)) or "-"
+    # Model names stay in the portal (detail page); the customer only needs the caveat.
     return ("Catatan: prakiraan bersifat estimasi berdasarkan data historis dan dapat berbeda dari kondisi aktual, "
-            "terutama bila terdapat perubahan beban kerja (misalnya aplikasi baru atau kampanye). "
-            f"Model yang digunakan dipilih otomatis berdasarkan akurasi uji historis ({names}).")
+            "terutama bila terdapat perubahan beban kerja (misalnya aplikasi baru atau kampanye).")

@@ -31,6 +31,7 @@ DEFAULT_SAMPLE = (
 )
 DEFAULT_OUTPUT = ROOT / "templates" / "report_template.docx"
 PROVIDER_LOGO = ROOT / "templates" / "assets" / "idxsti-logo.png"
+CLOUD_LOGO = ROOT / "templates" / "assets" / "cloudx-logo.png"
 
 
 # --------------------------------------------------------------------------- helpers
@@ -165,6 +166,20 @@ def set_col_widths(table, widths_dxa: list[int]) -> None:
             tcw.set(qn("w:type"), "dxa")
 
 
+def set_table_font_size(table, half_points: int) -> None:
+    """Explicit size on every run (and paragraph mark), so nothing inherits the 11pt style."""
+    for r in table._tbl.iter(qn("w:r")):
+        rpr = r.get_or_add_rPr()
+        for tag in ("w:sz", "w:szCs"):
+            el = rpr.find(qn(tag))
+            if el is None:
+                el = rpr.makeelement(qn(tag), {})
+                rpr.append(el)
+            el.set(qn("w:val"), str(half_points))
+    for el in table._tbl.iter(qn("w:sz"), qn("w:szCs")):
+        el.set(qn("w:val"), str(half_points))
+
+
 def set_header_row(table, headers: list[str]) -> None:
     for cell, h in zip(table.rows[0].cells, headers):
         cell_text(cell, h)
@@ -222,6 +237,14 @@ def build(sample: Path, output: Path) -> None:
                 if para.text.strip() == "Logo":
                     put_picture(para, PROVIDER_LOGO, logo_width)
 
+    # ---- cover footer: "Powered by / Logo Cloud" -> CloudX logo
+    for section in d.sections:
+        for ftr in (section.footer, section.first_page_footer, section.even_page_footer):
+            for p_el in list(ftr._element.iter(qn("w:p"))):
+                para = Paragraph(p_el, ftr)
+                if para.text.strip() == "Logo Cloud":
+                    put_picture(para, CLOUD_LOGO, Cm(4.2))
+
     # ---- document control table
     ctl = T[2]
     for cell, t in zip(
@@ -268,6 +291,10 @@ def build(sample: Path, output: Path) -> None:
     replace_after_colon(line("Agreed availability"), "{{ sla.target_label }}")
     actual = line("Actual availability")
     replace_after_colon(actual, "{{ sla.actual_label }}")
+    # keep the heading and the four SLA lines on one page
+    P[i_status].paragraph_format.keep_with_next = True
+    for prefix in ("Period date", "Total downtime", "Agreed availability"):
+        line(prefix).paragraph_format.keep_with_next = True
 
     # downtime detail table (only rendered when there is downtime)
     i_vm = heading("Daftar Virtual Machine")
@@ -377,9 +404,9 @@ def build(sample: Path, output: Path) -> None:
             "No",
             "Resource",
             "Metrik",
-            "Rata-rata Bulan Ini",
-            "Puncak Bulan Ini",
-            "Prakiraan (rata-rata / batas atas)",
+            "Rata-rata",
+            "Puncak",
+            "Prakiraan rata-rata / batas atas",
             "Status",
             "Rekomendasi",
         ],
@@ -434,6 +461,12 @@ def build(sample: Path, output: Path) -> None:
             "{{ t.status }}",
         ],
     )
+    # wider date/status columns so "Resolved" and dates don't break mid-word
+    set_col_widths(T[5], [520, 950, 1400, 1250, 1500, 950, 1550, 1131])
+    set_col_widths(T[6], [520, 950, 1400, 1850, 1050, 2350, 1174])
+    # 11pt is too large for 7-8 column tables; 9pt keeps words from breaking mid-word
+    for tbl in (T[5], T[6], dt, ft):
+        set_table_font_size(tbl, 18)  # half-points
 
     # ---- numbering: in the sample, Heading 2 uses a different list than Heading 1, so
     # sub-headings never restart per chapter (5.1 ... 10.1 ... 15.1). Put them in the
