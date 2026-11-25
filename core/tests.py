@@ -92,3 +92,58 @@ class RecipientValidationTests(TestCase):
         p = Project(client=client, name="P", short_name="P", jira_base_jql="x",
                     recipients_to="ops@abc.co.id, someone@other.com")
         self.assertEqual(p.invalid_recipients(), ["someone@other.com"])
+
+
+class DowntimePageTests(TestCase):
+    def setUp(self):
+        from django.core.management import call_command
+        import io
+
+        call_command("seed_demo", stdout=io.StringIO())
+        from django.contrib.auth.models import User
+
+        self.client.force_login(User.objects.get(username="operator"))
+        self.project = Project.objects.get(short_name="XYZ")
+        other_client = Client.objects.create(name="PT Lain", short_name="LAIN", allowed_email_domains="lain.id")
+        other = Project.objects.create(client=other_client, name="Lain", short_name="L",
+                                       jira_base_jql="x", recipients_to="a@lain.id")
+        self.foreign = Component.objects.create(project=other, name="lain-vm", prometheus_selector="x")
+
+    def post(self, **extra):
+        data = {"project": self.project.pk, "start": "2026-10-05T10:00", "end": "2026-10-05T12:00",
+                "category": "unplanned", "jira_key": "INC-1", "notes": ""}
+        data.update(extra)
+        return self.client.post("/downtime/new/", data)
+
+    def test_create_and_sla_preview(self):
+        vm1 = self.project.components.get(name="xyz-vm-1")
+        resp = self.post(components=[vm1.pk])
+        self.assertEqual(resp.status_code, 302)
+        d = Downtime.objects.get()
+        self.assertEqual(d.created_by.username, "operator")
+        self.assertEqual((d.end - d.start).total_seconds(), 7200)
+        page = self.client.get(f"/downtime/?project={self.project.pk}&month=2026-10")
+        self.assertContains(page, "INC-1")
+        self.assertEqual(page.context["sla"].downtime_minutes, 120)
+
+    def test_component_from_other_project_rejected(self):
+        resp = self.post(components=[self.foreign.pk])
+        self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, "Komponen bukan milik project ini")
+        self.assertFalse(Downtime.objects.exists())
+
+    def test_end_before_start_rejected(self):
+        resp = self.post(end="2026-10-05T09:00")
+        self.assertContains(resp, "Waktu selesai harus setelah waktu mulai")
+
+    def test_operator_cannot_delete(self):
+        d = Downtime.objects.create(project=self.project, start=at(5, 1), end=at(5, 2))
+        self.assertEqual(self.client.post(f"/downtime/{d.pk}/delete/").status_code, 403)
+
+    def test_admin_uses_portal_header(self):
+        from django.contrib.auth.models import User
+
+        self.client.force_login(User.objects.get(username="admin"))
+        page = self.client.get("/admin/")
+        self.assertContains(page, 'class="ph"')
+        self.assertContains(page, "portal/shell.css")

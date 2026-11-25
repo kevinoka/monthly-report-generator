@@ -15,6 +15,11 @@
   <div class="card"><div class="msg error">{{ run.error }}</div><details><summary>Log</summary><pre>{{ run.log }}</pre></details></div>
 {% endif %}
 
+{% if run.summary.pdf_error %}
+  <div class="msg warning">PDF tidak dibuat: {{ run.summary.pdf_error }} Laporan versi DOCX tetap bisa diunduh dan dicek,
+    tetapi belum bisa dikirim ke pelanggan sampai PDF tersedia.</div>
+{% endif %}
+
 <div class="row" style="margin:16px 0">
   {% if run.pdf_file %}<a class="btn" href="{% url 'reports:download' run.pk 'pdf' %}">Unduh PDF</a>{% endif %}
   {% if run.docx_file %}<a class="btn" href="{% url 'reports:download' run.pk 'docx' %}">Unduh DOCX (untuk edit)</a>{% endif %}

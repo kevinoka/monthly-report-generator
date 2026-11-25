@@ -129,3 +129,21 @@ class EndToEndTests(TestCase):
         self.client.force_login(User.objects.get(username="operator"))
         self.assertEqual(self.client.get(reverse("reports:list")).status_code, 200)
         self.assertEqual(self.client.get(reverse("reports:generate")).status_code, 200)
+
+
+@override_settings(DATA_SOURCE_MODE="demo", LIBREOFFICE_BINARY="no-such-soffice", UNO_PYTHON="no-such-python")
+class WithoutLibreOfficeTests(TestCase):
+    def setUp(self):
+        self.media = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.media, True)
+        call_command("seed_demo", stdout=io.StringIO())
+
+    def test_docx_still_produced_and_sending_blocked(self):
+        with override_settings(MEDIA_ROOT=self.media):
+            project = Project.objects.get(short_name="XYZ")
+            run = builder.generate(ReportRun.objects.create(project=project, period=date(2026, 10, 1)))
+        self.assertEqual(run.status, ReportRun.Status.GENERATED, run.log)
+        self.assertTrue(run.docx_file)
+        self.assertFalse(run.pdf_file)
+        self.assertIn("LibreOffice tidak ditemukan", run.summary["pdf_error"])
+        self.assertTrue(any("PDF" in p for p in mailer.preflight(run, require_approval=False)))

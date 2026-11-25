@@ -1,0 +1,87 @@
+{% extends "reports/base.html" %}
+{% block title %}{% if obj %}Ubah{% else %}Tambah{% endif %} downtime{% endblock %}
+{% block content %}
+<h1>{% if obj %}Ubah{% else %}Tambah{% endif %} downtime</h1>
+<form method="post" class="card" style="max-width:760px">{% csrf_token %}
+  {% if form.non_field_errors %}<div class="msg error">{{ form.non_field_errors|join:" " }}</div>{% endif %}
+
+  <div class="field">
+    <label for="id_project">Project</label>
+    {{ form.project }}
+    {% for e in form.project.errors %}<div class="err">{{ e }}</div>{% endfor %}
+  </div>
+
+  <div class="field">
+    <label>Komponen terdampak</label>
+    <div class="checks" id="components">
+      {% for c in component_choices %}
+      <label data-project="{{ c.project_id }}">
+        <input type="checkbox" name="components" value="{{ c.pk }}" {% if c.checked %}checked{% endif %}>
+        {{ c.name }} <span class="muted">({{ c.kind }}{% if not c.critical %}, non-kritikal{% endif %})</span>
+      </label>
+      {% endfor %}
+    </div>
+    <div class="help" id="components-help">Kosongkan jika seluruh project terdampak.</div>
+    {% for e in form.components.errors %}<div class="err">{{ e }}</div>{% endfor %}
+  </div>
+
+  <div class="two">
+    <div class="field">
+      <label for="id_start">Mulai</label>{{ form.start }}
+      {% for e in form.start.errors %}<div class="err">{{ e }}</div>{% endfor %}
+    </div>
+    <div class="field">
+      <label for="id_end">Selesai</label>{{ form.end }}
+      {% for e in form.end.errors %}<div class="err">{{ e }}</div>{% endfor %}
+    </div>
+  </div>
+  <p class="muted" id="duration" style="margin-top:-6px">&nbsp;</p>
+
+  <div class="field">
+    <label for="id_category">Kategori</label>{{ form.category }}
+    <div class="help">Hanya kategori Unplanned yang mengurangi SLA.</div>
+  </div>
+  <div class="two">
+    <div class="field"><label for="id_jira_key">Nomor tiket Jira</label>{{ form.jira_key }}</div>
+    <div class="field"><label for="id_notes">Keterangan</label>{{ form.notes }}</div>
+  </div>
+
+  <div class="row">
+    <button class="btn primary" type="submit">Simpan</button>
+    <a class="btn" href="{% url 'core:downtime_list' %}">Batal</a>
+  </div>
+</form>
+
+<script>
+(() => {
+  const project = document.getElementById("id_project");
+  const boxes = document.querySelectorAll("#components label");
+  const help = document.getElementById("components-help");
+  function filter() {
+    let shown = 0;
+    boxes.forEach(l => {
+      const match = l.dataset.project === project.value;
+      l.hidden = !match;
+      if (!match) l.querySelector("input").checked = false;
+      shown += match;
+    });
+    help.textContent = !project.value ? "Pilih project terlebih dahulu."
+      : shown ? "Kosongkan jika seluruh project terdampak." : "Project ini belum memiliki komponen.";
+  }
+  project.addEventListener("change", filter);
+  filter();
+
+  const start = document.getElementById("id_start"), end = document.getElementById("id_end");
+  const out = document.getElementById("duration");
+  function duration() {
+    if (!start.value || !end.value) { out.innerHTML = "&nbsp;"; return; }
+    const min = Math.round((new Date(end.value) - new Date(start.value)) / 60000);
+    if (min <= 0) { out.textContent = "Waktu selesai harus setelah waktu mulai."; out.style.color = "var(--bad)"; return; }
+    out.style.color = "";
+    const h = Math.floor(min / 60), m = min % 60;
+    out.textContent = `Durasi: ${min} menit` + (h ? ` (${h} jam ${m} menit)` : "");
+  }
+  start.addEventListener("input", duration); end.addEventListener("input", duration); duration();
+})();
+</script>
+{% endblock %}

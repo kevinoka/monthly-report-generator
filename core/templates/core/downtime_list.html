@@ -1,0 +1,58 @@
+{% extends "reports/base.html" %}
+{% block title %}Input downtime{% endblock %}
+{% block content %}
+<div class="row" style="justify-content:space-between;margin-bottom:16px">
+  <h1 style="margin:0">Downtime - {{ month_label }}</h1>
+  {% if can_add %}<a class="btn primary" href="{% url 'core:downtime_create' %}{% if project %}?project={{ project.pk }}{% endif %}">Tambah downtime</a>{% endif %}
+</div>
+
+<form class="row" method="get" style="margin-bottom:16px">
+  <select name="project" onchange="this.form.submit()">
+    <option value="">Semua project</option>
+    {% for p in projects %}<option value="{{ p.pk }}" {% if project_id == p.pk|stringformat:"s" %}selected{% endif %}>{{ p.client.short_name }} / {{ p.name }}</option>{% endfor %}
+  </select>
+  <input type="month" name="month" value="{{ month_value }}" onchange="this.form.submit()">
+  <noscript><button class="btn" type="submit">Tampilkan</button></noscript>
+</form>
+
+{% if sla %}
+<div class="grid">
+  <div class="card stat"><div class="v">{{ sla_actual }}</div>
+    <div class="l">Availability sementara (target {{ sla_target }})</div></div>
+  <div class="card stat"><div class="v">{{ sla.downtime_minutes.normalize }}</div><div class="l">Menit downtime dihitung SLA</div></div>
+  <div class="card stat"><div class="v">{{ sla.excluded_minutes.normalize }}</div><div class="l">Menit dikecualikan (planned / pelanggan)</div></div>
+</div>
+<p class="muted" style="margin-top:-4px">Dihitung dengan metode: {{ project.get_sla_method_display }}. Angka ini yang akan masuk ke laporan.</p>
+{% else %}
+<p class="muted">Pilih project untuk melihat perhitungan SLA sementara bulan ini.</p>
+{% endif %}
+
+<div class="scroll"><table>
+  <thead><tr>{% if not project %}<th>Project</th>{% endif %}<th>Mulai</th><th>Selesai</th><th class="num">Menit</th>
+    <th>Komponen</th><th>Kategori</th><th>Tiket / keterangan</th><th>Diinput</th><th></th></tr></thead>
+  <tbody>
+  {% for r in rows %}{% with d=r.obj %}
+    <tr>
+      {% if not project %}<td>{{ d.project.client.short_name }} / {{ d.project.name }}</td>{% endif %}
+      <td>{{ d.start|date:"d/m/Y H:i" }}</td>
+      <td>{{ d.end|date:"d/m/Y H:i" }}</td>
+      <td class="num">{{ r.minutes }}</td>
+      <td>{{ r.components }}</td>
+      <td>{% if d.counts_for_sla %}<strong>Unplanned</strong>{% else %}<span class="muted">{{ d.get_category_display }}</span>{% endif %}</td>
+      <td>{{ d.jira_key }}{% if d.jira_key and d.notes %} · {% endif %}{{ d.notes }}</td>
+      <td class="muted">{{ d.created_by|default:"-" }}</td>
+      <td style="white-space:nowrap">
+        {% if can_change %}<a href="{% url 'core:downtime_edit' d.pk %}">Ubah</a>{% endif %}
+        {% if can_delete %}
+        <form method="post" action="{% url 'core:downtime_delete' d.pk %}" style="display:inline"
+              onsubmit="return confirm('Hapus downtime ini?')">{% csrf_token %}
+          <button class="btn danger" style="padding:2px 8px">Hapus</button></form>
+        {% endif %}
+      </td>
+    </tr>
+  {% endwith %}{% empty %}
+    <tr><td colspan="9" class="muted">Tidak ada downtime tercatat pada periode ini.</td></tr>
+  {% endfor %}
+  </tbody>
+</table></div>
+{% endblock %}

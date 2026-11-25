@@ -1,0 +1,16 @@
+{# Shared top navigation. `section` marks the active menu item. #}
+<header class="ph"><div class="ph-wrap">
+  <a class="ph-brand" href="{% url 'reports:list' %}">Monthly Report Generator</a>
+  {% if user.is_authenticated %}
+  <nav class="ph-nav">
+    <a href="{% url 'reports:list' %}" {% if section == "reports" %}class="active"{% endif %}>Laporan</a>
+    {% if perms.reports.add_reportrun %}<a href="{% url 'reports:generate' %}" {% if section == "generate" %}class="active"{% endif %}>Generate</a>{% endif %}
+    {% if perms.core.view_downtime %}<a href="{% url 'core:downtime_list' %}" {% if section == "downtime" %}class="active"{% endif %}>Input downtime</a>{% endif %}
+    {% if user.is_staff %}<a href="{% url 'admin:index' %}" {% if section == "admin" %}class="active"{% endif %}>Master data</a>{% endif %}
+  </nav>
+  <form class="ph-user" method="post" action="{% url 'logout' %}">{% csrf_token %}
+    <span>{{ user.get_full_name|default:user.username }}</span>
+    <button class="ph-btn" type="submit">Keluar</button>
+  </form>
+  {% endif %}
+</div></header>

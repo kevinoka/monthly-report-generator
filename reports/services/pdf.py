@@ -36,6 +36,8 @@ def docx_to_pdf(docx_path: Path, pdf_path: Path) -> None:
                  "--convert-to", "pdf", "--outdir", outdir, str(docx_path)],
                 check=True, capture_output=True, timeout=timeout,
             )
+        except FileNotFoundError as exc:
+            raise PdfError("LibreOffice tidak ditemukan. Install LibreOffice atau set LIBREOFFICE_BINARY.") from exc
         except (subprocess.SubprocessError, OSError) as exc:
             raise PdfError(f"Konversi PDF gagal: {exc}") from exc
         produced = Path(outdir) / (docx_path.stem + ".pdf")

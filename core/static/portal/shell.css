@@ -1,0 +1,18 @@
+/* Shared by the portal pages and the Django admin, so both read as one site. */
+:root {
+  --bg:#f6f6f4; --surface:#fff; --text:#1a1a19; --muted:#5f5e5a; --line:#e3e2de;
+  --accent:#2a78d6; --accent-hover:#1f63b5; --ok:#0a7d2c; --warn:#a86400; --bad:#c22a2a;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+.ph { background:var(--surface); border-bottom:1px solid var(--line); font:14px/1.5 var(--font); color:var(--text); }
+.ph-wrap { max-width:1100px; margin:0 auto; padding:0 16px; display:flex; align-items:center; gap:24px;
+           min-height:56px; flex-wrap:wrap; }
+.ph .ph-brand, .ph .ph-brand:link, .ph .ph-brand:visited { font-weight:600; color:var(--text); text-decoration:none; }
+.ph-nav { display:flex; gap:16px; flex:1; flex-wrap:wrap; }
+.ph .ph-nav a, .ph .ph-nav a:link, .ph .ph-nav a:visited { color:var(--muted); text-decoration:none; padding:16px 0; border-bottom:2px solid transparent; }
+.ph .ph-nav a:hover { color:var(--text); }
+.ph .ph-nav a.active { color:var(--text); border-bottom-color:var(--accent); }
+.ph-user { display:flex; align-items:center; gap:10px; color:var(--muted); margin:0; }
+.ph-btn { border:1px solid var(--line); background:var(--surface); color:var(--text); padding:6px 12px;
+          border-radius:6px; cursor:pointer; font:inherit; }
+.ph-btn:hover { border-color:var(--muted); }

@@ -22,7 +22,7 @@ def preflight(run: ReportRun, require_approval: bool = True) -> list[str]:
     if run.status == ReportRun.Status.SENT:
         problems.append("Laporan ini sudah pernah dikirim.")
     if not run.pdf_file:
-        problems.append("File PDF belum tersedia.")
+        problems.append("File PDF belum tersedia (LibreOffice belum terpasang di server?).")
     if not run.project.to_list:
         problems.append("Project tidak memiliki penerima (To).")
     if bad := run.project.invalid_recipients():

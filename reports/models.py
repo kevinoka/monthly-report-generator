@@ -49,6 +49,8 @@ class ReportRun(models.Model):
 
     class Meta:
         ordering = ["-period", "project__client__name", "project__name", "-created_at"]
+        verbose_name = "riwayat laporan"
+        verbose_name_plural = "riwayat laporan"
         permissions = [
             ("approve_reportrun", "Dapat menyetujui laporan"),
             ("send_reportrun", "Dapat mengirim laporan ke pelanggan"),

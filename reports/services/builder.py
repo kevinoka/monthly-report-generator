@@ -21,7 +21,7 @@ from reports.models import ReportRun
 
 from . import charts, demo, forecasting, jira, metrics, narrative
 from .formatting import long_date, month_year, num, pct, short_date, sla_pct
-from .pdf import docx_to_pdf
+from .pdf import PdfError, docx_to_pdf
 
 log = logging.getLogger(__name__)
 CHART_WIDTH = Mm(157)
@@ -192,8 +192,14 @@ def build_report(run: ReportRun) -> None:
         tpl.save(str(docx_path))
         run.docx_file.save(f"{base}.docx", ContentFile(docx_path.read_bytes()), save=False)
         run.append_log("Konversi ke PDF")
-        docx_to_pdf(docx_path, pdf_path)
-        run.pdf_file.save(f"{base}.pdf", ContentFile(pdf_path.read_bytes()), save=False)
+        pdf_error = ""
+        try:
+            docx_to_pdf(docx_path, pdf_path)
+            run.pdf_file.save(f"{base}.pdf", ContentFile(pdf_path.read_bytes()), save=False)
+        except PdfError as exc:
+            # Keep the DOCX; the report can still be reviewed, it just cannot be e-mailed yet.
+            pdf_error = str(exc)
+            run.append_log(f"PDF tidak dibuat: {exc}")
 
     run.summary = {
         "sla": {
@@ -206,6 +212,7 @@ def build_report(run: ReportRun) -> None:
         "flagged": flagged,
         "underutilised": under,
         "data_source": settings.DATA_SOURCE_MODE,
+        "pdf_error": pdf_error,
     }
 
 

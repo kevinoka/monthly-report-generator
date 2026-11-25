@@ -1,7 +1,6 @@
-from django import forms
 from django.contrib import admin
 
-from .models import AdditionalService, Client, Component, Downtime, Project
+from .models import AdditionalService, Client, Component, Project
 
 
 class ProjectInline(admin.TabularInline):
@@ -44,37 +43,4 @@ class ProjectAdmin(admin.ModelAdmin):
         ("Pengiriman email", {"fields": ("recipients_to", "recipients_cc", "auto_send")}),
     )
 
-
-class DowntimeForm(forms.ModelForm):
-    class Meta:
-        model = Downtime
-        fields = ("project", "components", "start", "end", "category", "jira_key", "notes")
-
-    def clean(self):
-        data = super().clean()
-        project, comps = data.get("project"), data.get("components")
-        if project and comps:
-            wrong = [c.name for c in comps if c.project_id != project.pk]
-            if wrong:
-                raise forms.ValidationError(f"Komponen bukan milik project ini: {', '.join(wrong)}")
-        return data
-
-
-@admin.register(Downtime)
-class DowntimeAdmin(admin.ModelAdmin):
-    form = DowntimeForm
-    list_display = ("project", "start", "end", "duration_minutes", "category", "jira_key", "created_by")
-    list_filter = ("category", "project__client", "project")
-    date_hierarchy = "start"
-    search_fields = ("jira_key", "notes")
-    filter_horizontal = ("components",)
-    readonly_fields = ("created_by", "created_at")
-
-    @admin.display(description="durasi (menit)")
-    def duration_minutes(self, obj):
-        return round((obj.end - obj.start).total_seconds() / 60, 1)
-
-    def save_model(self, request, obj, form, change):
-        if not obj.created_by_id:
-            obj.created_by = request.user
-        super().save_model(request, obj, form, change)
+# Downtime is managed on its own portal page (/downtime/), not in the admin.

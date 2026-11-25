@@ -23,7 +23,8 @@ Downtime  ───┘   (simpan histori per jam)               └─> PDF ─>
 
 ## Mencoba cepat (mode demo, tanpa akses Prometheus/Jira)
 
-Butuh Python 3.12+ dan LibreOffice (untuk PDF).
+Butuh Python 3.12+. LibreOffice dibutuhkan untuk membuat PDF. Tanpa LibreOffice laporan tetap dibuat
+dalam bentuk DOCX (bisa diunduh dan dicek), tetapi belum bisa dikirim ke pelanggan.
 
 ```bash
 python -m venv .venv && . .venv/bin/activate

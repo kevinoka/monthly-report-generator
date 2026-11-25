@@ -1,0 +1,52 @@
+{% extends "admin/base.html" %}
+{% load static %}
+{# Restyle Django admin ("Master data") to match the portal: same header, colours and font. #}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | Master data{% endblock %}
+
+{# Portal is light-only; drop admin's dark palette so both look the same. #}
+{% block dark-mode-vars %}{% endblock %}
+
+{% block extrastyle %}{{ block.super }}
+<link rel="stylesheet" href="{% static 'portal/shell.css' %}">
+<style>
+  :root, html[data-theme="dark"], html[data-theme="light"] {
+    --primary: var(--accent); --secondary: var(--accent); --primary-fg:#fff;
+    --body-fg: var(--text); --body-bg: var(--bg); --body-quiet-color: var(--muted);
+    --body-medium-color: var(--muted); --body-loud-color: var(--text);
+    --header-color: var(--text); --header-branding-color: var(--text); --header-bg: var(--surface);
+    --header-link-color: var(--muted);
+    --breadcrumbs-fg: var(--muted); --breadcrumbs-link-fg: var(--accent); --breadcrumbs-bg: transparent;
+    --link-fg: var(--accent); --link-hover-color: var(--accent-hover); --link-selected-fg: var(--accent);
+    --hairline-color: var(--line); --border-color: var(--line);
+    --error-fg: var(--bad); --message-success-bg:#eaf6ee; --message-warning-bg:#fdf4e3; --message-error-bg:#fbecec;
+    --darkened-bg:#f1f0ed; --selected-bg:#eef4fc; --selected-row:#eef4fc;
+    --button-fg:#fff; --button-bg: var(--accent); --button-hover-bg: var(--accent-hover);
+    --default-button-bg: var(--accent); --default-button-hover-bg: var(--accent-hover);
+    --close-button-bg:#8a8984; --close-button-hover-bg: var(--muted);
+    --object-tools-fg:#fff; --object-tools-bg: var(--accent); --object-tools-hover-bg: var(--accent-hover);
+    --font-family-primary: var(--font);
+    color-scheme: light;
+  }
+  body { background: var(--bg); }
+  .theme-toggle { display:none; }
+  div.breadcrumbs { max-width:1100px; margin:0 auto; padding:16px 16px 0; box-sizing:border-box; font-size:13px; }
+  div.breadcrumbs a { color: var(--accent); }
+  #main { max-width:1100px; margin:0 auto; }
+  #content { padding: 16px; }
+  #content h1 { font-size:20px; font-weight:600; color:var(--text); }
+  .module, #changelist, .inline-group { border-radius:8px; }
+  .module h2, .module caption, .inline-group h2 { background: var(--surface); color: var(--text);
+    border-bottom:1px solid var(--line); font-weight:600; }
+  .module { background: var(--surface); border:1px solid var(--line); }
+  thead th, tfoot td { background: var(--surface); color: var(--muted); }
+  .button, input[type=submit], input[type=button], .submit-row input, a.button { border-radius:6px; }
+  #nav-sidebar { background: var(--surface); }
+  fieldset .fieldset-heading, fieldset.module > h2 { font-size:14px; font-weight:600; color:var(--text);
+    background: var(--surface); text-transform:none; letter-spacing:0; padding:10px 12px; }
+  .ph-wrap { box-sizing:border-box; }
+</style>
+{% endblock %}
+
+{% block header %}{% with section="admin" %}{% include "portal/_header.html" %}{% endwith %}{% endblock %}
+{% block nav-global %}{% endblock %}

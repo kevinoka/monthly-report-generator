@@ -1,20 +1,14 @@
-<!doctype html>
+{% load static %}<!doctype html>
 <html lang="id">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Monthly Report Generator{% endblock %}</title>
+<link rel="stylesheet" href="{% static 'portal/shell.css' %}">
 <style>
-  :root { --bg:#f6f6f4; --surface:#fff; --text:#1a1a19; --muted:#5f5e5a; --line:#e3e2de;
-          --accent:#2a78d6; --ok:#0a7d2c; --warn:#a86400; --bad:#c22a2a; }
   * { box-sizing: border-box; }
-  body { margin:0; font:14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--text); }
-  header { background:var(--surface); border-bottom:1px solid var(--line); }
+  body { margin:0; font:14px/1.5 var(--font); background:var(--bg); color:var(--text); }
   .wrap { max-width:1100px; margin:0 auto; padding:0 16px; }
-  header .wrap { display:flex; align-items:center; gap:24px; height:56px; }
-  header .brand { font-weight:600; }
-  header nav { display:flex; gap:16px; flex:1; }
-  header a { color:var(--muted); text-decoration:none; } header a:hover { color:var(--text); }
   main { padding:24px 0 48px; }
   h1 { font-size:20px; margin:0 0 16px; } h2 { font-size:16px; margin:24px 0 8px; }
   .card { background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:16px; margin-bottom:16px; }
@@ -39,25 +33,21 @@
   .stat .v { font-size:22px; font-weight:600; } .stat .l { color:var(--muted); font-size:12px; }
   input, select { font:inherit; padding:6px 8px; border:1px solid var(--line); border-radius:6px; }
   .scroll { overflow-x:auto; }
+  textarea { font:inherit; padding:6px 8px; border:1px solid var(--line); border-radius:6px; width:100%; }
+  .field { margin-bottom:14px; } .field > label { display:block; font-weight:600; margin-bottom:4px; }
+  .field .help { color:var(--muted); font-size:12px; margin-top:2px; }
+  .field .err { color:var(--bad); font-size:12px; }
+  .two { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:0 16px; }
+  .checks { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:6px 16px; }
+  .checks label { font-weight:400; display:flex; gap:6px; align-items:center; }
+  .btn.danger { color:var(--bad); }
+  a { color:var(--accent); }
   iframe { width:100%; height:80vh; border:1px solid var(--line); border-radius:8px; }
 </style>
 {% block head %}{% endblock %}
 </head>
 <body>
-<header><div class="wrap">
-  <span class="brand">Monthly Report Generator</span>
-  {% if user.is_authenticated %}
-  <nav>
-    <a href="{% url 'reports:list' %}">Laporan</a>
-    {% if perms.reports.add_reportrun %}<a href="{% url 'reports:generate' %}">Generate</a>{% endif %}
-    {% if user.is_staff %}<a href="{% url 'admin:core_downtime_changelist' %}">Input downtime</a>
-    <a href="{% url 'admin:index' %}">Master data</a>{% endif %}
-  </nav>
-  <form method="post" action="{% url 'logout' %}">{% csrf_token %}
-    <span class="muted">{{ user.get_full_name|default:user.username }}</span>
-    <button class="btn" type="submit">Keluar</button></form>
-  {% endif %}
-</div></header>
+{% include "portal/_header.html" %}
 <main><div class="wrap">
   {% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}
   {% block content %}{% endblock %}
