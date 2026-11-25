@@ -41,6 +41,23 @@ def _fetch_tickets(project, start, end):
     return jira.fetch_tickets(project, start, end)
 
 
+def _client_logo(tpl: DocxTemplate, client):
+    """Cover logo for the client: fit inside ~30 x 14 mm, or nothing when no logo is uploaded."""
+    if not client.logo:
+        return ""
+    try:
+        from PIL import Image
+
+        with client.logo.open("rb") as f:
+            w, h = Image.open(f).size
+        path = client.logo.path
+    except (OSError, ValueError, NotImplementedError):
+        return ""
+    if w / h > 30 / 14:
+        return InlineImage(tpl, path, width=Mm(30))
+    return InlineImage(tpl, path, height=Mm(14))
+
+
 def _ticket_rows(tickets: list[jira.Ticket]) -> list[dict]:
     tz = ZoneInfo(settings.TIME_ZONE)
     return [{
@@ -154,6 +171,7 @@ def build_report(run: ReportRun) -> None:
         "provider_short": settings.PROVIDER_SHORT,
         "client_name": client.name,
         "client_short": client.short_name,
+        "client_logo": _client_logo(tpl, client),
         "contract_number": client.contract_number or "-",
         "project_name": project.name,
         "project_short": project.short_name,

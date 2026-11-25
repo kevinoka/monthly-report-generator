@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
@@ -12,3 +14,6 @@ urlpatterns = [
     path("downtime/", include("core.urls")),
     path("", include("reports.urls")),
 ]
+
+if settings.DEBUG:  # dev only: lets admin show uploaded client logos. Reports are served via views with auth.
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

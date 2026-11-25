@@ -16,6 +16,10 @@ class Client(models.Model):
     name = models.CharField("nama perusahaan", max_length=200, help_text="Contoh: PT ABC")
     short_name = models.CharField("singkatan", max_length=50, help_text="Contoh: ABC")
     contract_number = models.CharField("nomor kontrak", max_length=100, blank=True)
+    logo = models.ImageField(
+        "logo", upload_to="client-logos/", blank=True,
+        help_text="Opsional. Tampil di cover laporan di samping nama client. PNG transparan paling bagus.",
+    )
     allowed_email_domains = models.CharField(
         "domain email yang diizinkan",
         max_length=500,

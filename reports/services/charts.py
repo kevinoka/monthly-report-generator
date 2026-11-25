@@ -27,6 +27,7 @@ THRESH_CRIT = "#e34948"
 DPI = 200
 WIDTH_IN = 6.2
 TZ = "Asia/Jakarta"
+LABEL_BOX = dict(boxstyle="round,pad=0.2", fc=SURFACE, ec="none", alpha=0.9)  # keeps labels readable over data
 
 plt.rcParams.update({
     "font.family": ["Inter", "DejaVu Sans"],
@@ -72,12 +73,15 @@ def usage_chart(series: pd.Series, title: str, unit_note: str = "%") -> BytesIO:
         ax.fill_between(s.index, s.values, color=SERIES, alpha=0.08, linewidth=0)
         avg, peak_t, peak = s.mean(), s.idxmax(), s.max()
         ax.axhline(avg, color=TEXT_2, linewidth=0.6, linestyle=(0, (3, 3)))
-        ax.annotate(f"rata-rata {num(avg)}{unit_note}", (s.index[0], avg), xytext=(2, 3),
+        ax.annotate(f"rata-rata {num(avg)}{unit_note}", (s.index[0], avg), xytext=(2, -3), va="top", bbox=LABEL_BOX,
                     textcoords="offset points", fontsize=6.5, color=TEXT_2)
         ax.plot([peak_t], [peak], marker="o", markersize=3.5, color=SERIES,
                 markeredgecolor=SURFACE, markeredgewidth=1)
-        ax.annotate(f"puncak {num(peak)}{unit_note}", (peak_t, peak), xytext=(4, -2),
-                    textcoords="offset points", fontsize=6.5, color=TEXT, va="top")
+        # label above the peak; flip to the left when the peak is near the right edge
+        near_right = (peak_t - s.index[0]) > 0.8 * (s.index[-1] - s.index[0])
+        ax.annotate(f"puncak {num(peak)}{unit_note}", (peak_t, peak), xytext=(-4 if near_right else 4, 3),
+                    textcoords="offset points", fontsize=6.5, color=TEXT, va="bottom",
+                    ha="right" if near_right else "left", bbox=LABEL_BOX)
         top = max(100.0, peak * 1.08) if unit_note == "%" else peak * 1.1
         ax.set_ylim(0, top)
         ax.set_xlim(s.index[0], s.index[-1])

@@ -19,6 +19,7 @@ from pathlib import Path
 import docx
 from docx.enum.text import WD_BREAK
 from docx.oxml.ns import qn
+from docx.shared import Cm
 from docx.table import Table, _Row
 from docx.text.paragraph import Paragraph
 
@@ -29,6 +30,7 @@ DEFAULT_SAMPLE = (
     / "[Sample] Customer ABC - Oktober 2026 Monthly Customer Report.docx"
 )
 DEFAULT_OUTPUT = ROOT / "templates" / "report_template.docx"
+PROVIDER_LOGO = ROOT / "templates" / "assets" / "idxsti-logo.png"
 
 
 # --------------------------------------------------------------------------- helpers
@@ -168,6 +170,13 @@ def set_header_row(table, headers: list[str]) -> None:
         cell_text(cell, h)
 
 
+def put_picture(paragraph: Paragraph, image: Path, width) -> None:
+    """Replace the paragraph's text with a picture (keeps paragraph alignment)."""
+    for r in list(paragraph.runs):
+        r._r.getparent().remove(r._r)
+    paragraph.add_run().add_picture(str(image), width=width)
+
+
 # --------------------------------------------------------------------------- main
 def build(sample: Path, output: Path) -> None:
     d = docx.Document(str(sample))
@@ -190,20 +199,28 @@ def build(sample: Path, output: Path) -> None:
 
     # ---- cover
     cover_name, cover_period = T[0], T[1]
+    set_text(cover_name.rows[0].cells[0].paragraphs[0], "{{ client_logo }}")
     set_text(cover_name.rows[0].cells[1].paragraphs[0], "{{ client_name }}")
     set_text(cover_name.rows[0].cells[1].paragraphs[1], "{{ project_name }}")
     set_text(cover_period.rows[1].cells[1].paragraphs[0], "{{ period_label }}")
 
-    # ---- headers: "Prepared by PT. DEF"
+    # ---- headers: "Prepared by PT. DEF" and the provider logo
+    done = set()
     for section in d.sections:
-        for hdr in (
-            section.header,
-            section.first_page_header,
-            section.even_page_header,
+        for hdr, logo_width in (
+            (section.header, Cm(3.2)),
+            (section.first_page_header, Cm(3.6)),
+            (section.even_page_header, Cm(3.2)),
         ):
+            if id(hdr._element) in done:
+                continue
+            done.add(id(hdr._element))
             # iterate raw <w:p> so text boxes are included
-            for p_el in hdr._element.iter(qn("w:p")):
-                replace_across_runs(Paragraph(p_el, hdr), "PT. DEF", "{{ provider_name }}")
+            for p_el in list(hdr._element.iter(qn("w:p"))):
+                para = Paragraph(p_el, hdr)
+                replace_across_runs(para, "PT. DEF", "{{ provider_name }}")
+                if para.text.strip() == "Logo":
+                    put_picture(para, PROVIDER_LOGO, logo_width)
 
     # ---- document control table
     ctl = T[2]
@@ -417,6 +434,20 @@ def build(sample: Path, output: Path) -> None:
             "{{ t.status }}",
         ],
     )
+
+    # ---- numbering: in the sample, Heading 2 uses a different list than Heading 1, so
+    # sub-headings never restart per chapter (5.1 ... 10.1 ... 15.1). Put them in the
+    # Heading 1 list at level 1 so they read 6.1, 6.2, ... 7.1, ...
+    h1_num = None
+    for p in d.paragraphs:
+        num = p._p.find(".//" + qn("w:numPr"))
+        if num is None:
+            continue
+        if p.style.name == "Heading 1" and h1_num is None:
+            h1_num = num.find(qn("w:numId")).get(qn("w:val"))
+        elif p.style.name == "Heading 2" and h1_num is not None:
+            num.find(qn("w:numId")).set(qn("w:val"), h1_num)
+            num.find(qn("w:ilvl")).set(qn("w:val"), "1")
 
     # ---- ask Word to refresh the table of contents / page numbers on open
     settings = d.settings.element
