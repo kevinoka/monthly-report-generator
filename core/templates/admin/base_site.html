@@ -8,6 +8,8 @@
 {% block dark-mode-vars %}{% endblock %}
 
 {% block extrastyle %}{{ block.super }}
+<link rel="icon" href="{% static 'portal/favicon.ico' %}" sizes="any">
+<link rel="apple-touch-icon" href="{% static 'portal/idxsti-mark.png' %}">
 <link rel="stylesheet" href="{% static 'portal/shell.css' %}">
 <style>
   :root, html[data-theme="dark"], html[data-theme="light"] {
@@ -19,11 +21,11 @@
     --breadcrumbs-fg: var(--muted); --breadcrumbs-link-fg: var(--accent); --breadcrumbs-bg: transparent;
     --link-fg: var(--accent); --link-hover-color: var(--accent-hover); --link-selected-fg: var(--accent);
     --hairline-color: var(--line); --border-color: var(--line);
-    --error-fg: var(--bad); --message-success-bg:#eaf6ee; --message-warning-bg:#fdf4e3; --message-error-bg:#fbecec;
-    --darkened-bg:#f1f0ed; --selected-bg:#eef4fc; --selected-row:#eef4fc;
+    --error-fg: var(--bad); --message-success-bg:#eaf6ee; --message-warning-bg:#fdf4e3; --message-error-bg:var(--accent-soft);
+    --darkened-bg:#f1f1ef; --selected-bg:var(--accent-soft); --selected-row:var(--accent-soft);
     --button-fg:#fff; --button-bg: var(--accent); --button-hover-bg: var(--accent-hover);
     --default-button-bg: var(--accent); --default-button-hover-bg: var(--accent-hover);
-    --close-button-bg:#8a8984; --close-button-hover-bg: var(--muted);
+    --close-button-bg:#8a8a8a; --close-button-hover-bg: var(--muted);
     --object-tools-fg:#fff; --object-tools-bg: var(--accent); --object-tools-hover-bg: var(--accent-hover);
     --font-family-primary: var(--font);
     color-scheme: light;

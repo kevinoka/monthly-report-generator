@@ -1,7 +1,7 @@
 {% extends "reports/base.html" %}
 {% block content %}
 <div class="card" style="max-width:380px;margin:40px auto">
-  <h1>Masuk</h1>
+  <h1>Masuk ke Monthly Report Generator</h1>
   {% if form.errors %}<div class="msg error">Username atau password salah.</div>{% endif %}
   <form method="post">{% csrf_token %}
     <p><label>Username<br><input name="username" autofocus required style="width:100%"></label></p>

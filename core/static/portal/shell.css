@@ -1,18 +1,37 @@
-/* Shared by the portal pages and the Django admin, so both read as one site. */
+/* Shared by the portal pages and the Django admin, so both read as one site.
+   Colours follow the IDXSTI logo: red / orange / green on neutral grey. */
 :root {
-  --bg:#f6f6f4; --surface:#fff; --text:#1a1a19; --muted:#5f5e5a; --line:#e3e2de;
-  --accent:#2a78d6; --accent-hover:#1f63b5; --ok:#0a7d2c; --warn:#a86400; --bad:#c22a2a;
+  /* logo colours (decorative use: stripe, accents) */
+  --brand-red:#d90000; --brand-orange:#f26300; --brand-green:#009300; --brand-gray:#666666;
+
+  /* UI tokens (darkened where text sits on them, for readable contrast) */
+  --bg:#f6f6f5; --surface:#fff; --text:#1c1c1c; --muted:#5c5c5c; --line:#e2e2e0;
+  --accent:#c40000; --accent-hover:#990000; --accent-soft:#fcecec;
+  --ok:#00802b; --warn:#b34d00; --bad:#c40000;
   --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
-.ph { background:var(--surface); border-bottom:1px solid var(--line); font:14px/1.5 var(--font); color:var(--text); }
+.ph { background:var(--surface); border-bottom:1px solid var(--line); font:14px/1.5 var(--font); color:var(--text);
+      border-top:3px solid transparent;
+      border-image: linear-gradient(90deg, var(--brand-red), var(--brand-orange) 50%, var(--brand-green)) 1 0 0 0; }
 .ph-wrap { max-width:1100px; margin:0 auto; padding:0 16px; display:flex; align-items:center; gap:24px;
-           min-height:56px; flex-wrap:wrap; }
-.ph .ph-brand, .ph .ph-brand:link, .ph .ph-brand:visited { font-weight:600; color:var(--text); text-decoration:none; }
+           min-height:60px; flex-wrap:wrap; box-sizing:border-box; }
+.ph .ph-brand, .ph .ph-brand:link, .ph .ph-brand:visited { display:flex; align-items:center; gap:12px;
+           color:var(--brand-gray); text-decoration:none; font-weight:600; white-space:nowrap; }
+.ph-brand img { height:36px; width:auto; display:block; }
+.ph-brand .ph-app { padding-left:12px; border-left:1px solid var(--line); }
 .ph-nav { display:flex; gap:16px; flex:1; flex-wrap:wrap; }
-.ph .ph-nav a, .ph .ph-nav a:link, .ph .ph-nav a:visited { color:var(--muted); text-decoration:none; padding:16px 0; border-bottom:2px solid transparent; }
+.ph .ph-nav a, .ph .ph-nav a:link, .ph .ph-nav a:visited { color:var(--muted); text-decoration:none; padding:18px 0;
+           border-bottom:2px solid transparent; }
 .ph .ph-nav a:hover { color:var(--text); }
 .ph .ph-nav a.active { color:var(--text); border-bottom-color:var(--accent); }
 .ph-user { display:flex; align-items:center; gap:10px; color:var(--muted); margin:0; }
 .ph-btn { border:1px solid var(--line); background:var(--surface); color:var(--text); padding:6px 12px;
           border-radius:6px; cursor:pointer; font:inherit; }
 .ph-btn:hover { border-color:var(--muted); }
+@media (max-width: 760px) {
+  .ph-wrap { gap:0 16px; justify-content:space-between; }
+  .ph-brand .ph-app { display:none; }
+  /* menu drops to its own row and scrolls sideways instead of stacking */
+  .ph-nav { order:3; flex:1 0 100%; flex-wrap:nowrap; overflow-x:auto; gap:20px; }
+  .ph .ph-nav a, .ph .ph-nav a:link, .ph .ph-nav a:visited { padding:10px 0; white-space:nowrap; }
+}

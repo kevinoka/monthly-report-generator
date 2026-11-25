@@ -1,6 +1,9 @@
-{# Shared top navigation. `section` marks the active menu item. #}
+{% load static %}{# Shared top navigation. `section` marks the active menu item. #}
 <header class="ph"><div class="ph-wrap">
-  <a class="ph-brand" href="{% url 'reports:list' %}">Monthly Report Generator</a>
+  <a class="ph-brand" href="{% url 'reports:list' %}">
+    <img src="{% static 'portal/idxsti-logo.png' %}" alt="IDX Solusi Teknologi Informasi">
+    <span class="ph-app">Monthly Report Generator</span>
+  </a>
   {% if user.is_authenticated %}
   <nav class="ph-nav">
     <a href="{% url 'reports:list' %}" {% if section == "reports" %}class="active"{% endif %}>Laporan</a>

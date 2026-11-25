@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Monthly Report Generator{% endblock %}</title>
+<link rel="icon" href="{% static 'portal/favicon.ico' %}" sizes="any">
+<link rel="apple-touch-icon" href="{% static 'portal/idxsti-mark.png' %}">
 <link rel="stylesheet" href="{% static 'portal/shell.css' %}">
 <style>
   * { box-sizing: border-box; }
@@ -19,14 +21,18 @@
   .btn { display:inline-block; border:1px solid var(--line); background:var(--surface); color:var(--text); padding:7px 14px;
          border-radius:6px; text-decoration:none; cursor:pointer; font:inherit; }
   .btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .btn.primary:hover { background:var(--accent-hover); border-color:var(--accent-hover); }
+  .btn:hover { border-color:var(--muted); }
+  input:focus, select:focus, textarea:focus { outline:2px solid var(--accent); outline-offset:-1px; }
+  input[type=checkbox] { accent-color:var(--accent); }
   .btn:disabled { opacity:.5; cursor:not-allowed; }
   .row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
   .badge { display:inline-block; padding:1px 8px; border-radius:99px; font-size:12px; border:1px solid currentColor; }
-  .s-generated { color:var(--warn); } .s-approved { color:var(--accent); } .s-sent { color:var(--ok); }
+  .s-generated { color:var(--warn); } .s-approved { color:var(--text); } .s-sent { color:var(--ok); }
   .s-failed { color:var(--bad); } .s-queued, .s-generating { color:var(--muted); }
   .st-Kritis { color:var(--bad); font-weight:600; } .st-Perlu { color:var(--warn); font-weight:600; }
   .msg { padding:10px 14px; border-radius:6px; margin-bottom:12px; background:var(--surface); border:1px solid var(--line); }
-  .msg.error { border-color:var(--bad); color:var(--bad); } .msg.success { border-color:var(--ok); color:var(--ok); }
+  .msg.error { border-color:var(--bad); color:var(--bad); background:var(--accent-soft); } .msg.success { border-color:var(--ok); color:var(--ok); }
   .msg.warning { border-color:var(--warn); color:var(--warn); }
   .muted { color:var(--muted); } pre { white-space:pre-wrap; font-size:12px; max-height:320px; overflow:auto; }
   .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:12px; }
