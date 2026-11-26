@@ -48,15 +48,23 @@
   .checks label { font-weight:400; display:flex; gap:6px; align-items:center; }
   .btn.danger { color:var(--bad); }
   a { color:var(--accent); }
+  .big { font-size:18px; font-weight:600; font-variant-numeric:tabular-nums; }
+  .progress { display:flex; flex-direction:column; gap:6px; }
+  .progress .top { display:flex; justify-content:space-between; gap:12px; align-items:baseline; }
+  .bar { height:8px; background:#ecebe8; border-radius:99px; overflow:hidden; }
+  .bar .fill { height:100%; width:0; background:var(--accent); border-radius:99px; transition:width .8s ease; }
+  .progress.small { min-width:180px; font-size:12px; gap:3px; }
+  .progress.small .bar { height:6px; }
   iframe { width:100%; height:80vh; border:1px solid var(--line); border-radius:8px; }
 </style>
 {% block head %}{% endblock %}
 </head>
-<body>
+<body data-status-url="{% url 'reports:status_many' %}">
 {% include "portal/_header.html" %}
 <main><div class="wrap">
   {% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}
   {% block content %}{% endblock %}
 </div></main>
+<script src="{% static 'portal/progress.js' %}" defer></script>
 </body>
 </html>

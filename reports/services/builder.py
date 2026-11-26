@@ -94,7 +94,15 @@ def build_report(run: ReportRun) -> None:
     last_day = end.date().fromordinal(end.date().toordinal() - 1)
     tpl = DocxTemplate(str(settings.REPORT_TEMPLATE_PATH))
 
+    components = list(project.components.filter(is_active=True))
+    n = max(len(components), 1)
+
+    # Progress budget, roughly proportional to measured time: SLA 5% · components 5-60%
+    # (split evenly) · Jira 60-66% · document 66-72% · PDF 72-100% (LibreOffice is about a
+    # third of the total). The PDF step is opaque, so the page smooths the bar through it
+    # using the duration of previous runs.
     # ---- SLA
+    run.set_progress(2, "Menghitung SLA dari data downtime")
     sla = calculate_sla(project, start, end)
     run.append_log(f"SLA: {sla.actual}% (target {sla.target}%), downtime {sla.downtime_minutes} menit")
     tz = ZoneInfo(settings.TIME_ZONE)
@@ -116,7 +124,8 @@ def build_report(run: ReportRun) -> None:
     models_used: set[str] = set()
     horizons: list[int] = []
     summary_components = {}
-    for comp in project.components.filter(is_active=True):
+    for idx, comp in enumerate(components):
+        run.set_progress(5 + 55 * idx / n, f"Mengambil metrik & membuat prakiraan {comp.name} ({idx + 1}/{n})")
         run.append_log(f"Metrik {comp.name}: mengambil data")
         data = metrics.collect(comp, start, end)
         stats, fcs, assessments = {}, {}, {}
@@ -177,6 +186,7 @@ def build_report(run: ReportRun) -> None:
         }
 
     # ---- tickets
+    run.set_progress(60, "Mengambil tiket insiden & permintaan dari Jira")
     run.append_log("Jira: mengambil tiket insiden & permintaan")
     incidents, requests_ = _fetch_tickets(project, start, end)
     run.append_log(f"Jira: {len(incidents)} insiden, {len(requests_)} permintaan")
@@ -219,6 +229,7 @@ def build_report(run: ReportRun) -> None:
         "requests": _ticket_rows(requests_),
     }
 
+    run.set_progress(66, "Menyusun dokumen laporan")
     run.append_log("Menyusun dokumen")
     tpl.render(context, autoescape=True)
     base = f"{client.short_name} - {project.short_name} - {period_label} Monthly Customer Report"
@@ -226,6 +237,7 @@ def build_report(run: ReportRun) -> None:
         docx_path, pdf_path = Path(tmp) / "report.docx", Path(tmp) / "report.pdf"
         tpl.save(str(docx_path))
         run.docx_file.save(f"{base}.docx", ContentFile(docx_path.read_bytes()), save=False)
+        run.set_progress(72, "Mengonversi dokumen ke PDF")
         run.append_log("Konversi ke PDF")
         pdf_error = ""
         try:
@@ -256,10 +268,13 @@ def generate(run: ReportRun) -> ReportRun:
     run.status = ReportRun.Status.GENERATING
     run.error = ""
     run.log = ""
-    run.save(update_fields=["status", "error", "log"])
+    run.progress, run.progress_label = 0, "Memulai"
+    run.started_at = timezone.now()
+    run.save(update_fields=["status", "error", "log", "progress", "progress_label", "started_at"])
     try:
         build_report(run)
         run.status = ReportRun.Status.GENERATED
+        run.progress, run.progress_label = 100, "Selesai"
         run.append_log("Selesai")
     except Exception as exc:  # recorded for the operator, not swallowed silently
         log.exception("Report %s failed", run.pk)

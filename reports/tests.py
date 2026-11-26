@@ -147,3 +147,43 @@ class WithoutLibreOfficeTests(TestCase):
         self.assertFalse(run.pdf_file)
         self.assertIn("LibreOffice tidak ditemukan", run.summary["pdf_error"])
         self.assertTrue(any("PDF" in p for p in mailer.preflight(run, require_approval=False)))
+
+
+class ProgressTests(TestCase):
+    def setUp(self):
+        call_command("seed_demo", stdout=io.StringIO())
+        self.project = Project.objects.get(short_name="XYZ")
+
+    def test_estimate_uses_history_then_pace(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from reports.progress import payload
+
+        now = timezone.now()
+        for secs in (20, 22, 24):  # previous successful runs
+            ReportRun.objects.create(project=self.project, period=date(2026, 9, 1),
+                                     status=ReportRun.Status.GENERATED,
+                                     started_at=now - timedelta(hours=1, seconds=secs),
+                                     finished_at=now - timedelta(hours=1))
+        run = ReportRun.objects.create(project=self.project, period=date(2026, 10, 1),
+                                       status=ReportRun.Status.GENERATING, progress=0,
+                                       started_at=now - timedelta(seconds=5))
+        p = payload(run)
+        self.assertTrue(p["busy"])
+        self.assertAlmostEqual(p["remaining_seconds"], 17, delta=2)  # median 22s - 5s elapsed
+        self.assertGreaterEqual(p["progress"], 20)                  # smoothed from history
+
+        run.progress = 50
+        run.started_at = now - timedelta(seconds=30)                # slower than usual
+        p = payload(run)
+        self.assertGreater(p["remaining_seconds"], 10)              # pace says ~30s more
+
+    def test_status_endpoint(self):
+        run = ReportRun.objects.create(project=self.project, period=date(2026, 10, 1),
+                                       status=ReportRun.Status.GENERATED)
+        self.client.force_login(User.objects.get(username="operator"))
+        data = self.client.get(reverse("reports:status_many"), {"ids": f"{run.pk},abc"}).json()
+        self.assertEqual(data["runs"][0]["progress"], 100)
+        self.assertFalse(data["runs"][0]["busy"])

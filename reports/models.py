@@ -30,6 +30,10 @@ class ReportRun(models.Model):
     # Numbers behind the report (SLA, metric stats, forecasts, ticket counts) for audit/review
     summary = models.JSONField(default=dict, blank=True)
     log = models.TextField(blank=True)
+    # live progress while generating (written by the worker, polled by the page)
+    progress = models.PositiveSmallIntegerField(default=0)
+    progress_label = models.CharField(max_length=200, blank=True)
+    started_at = models.DateTimeField(null=True, blank=True)
     error = models.TextField(blank=True)
 
     created_by = models.ForeignKey(
@@ -62,6 +66,12 @@ class ReportRun(models.Model):
     @property
     def is_busy(self) -> bool:
         return self.status in {self.Status.QUEUED, self.Status.GENERATING}
+
+    def set_progress(self, percent: int, label: str) -> None:
+        """Record progress without touching other fields (safe while the page polls)."""
+        self.progress = max(0, min(100, int(percent)))
+        self.progress_label = label[:200]
+        ReportRun.objects.filter(pk=self.pk).update(progress=self.progress, progress_label=self.progress_label)
 
     def append_log(self, line: str) -> None:
         self.log = f"{self.log}{line}\n"

@@ -1,5 +1,4 @@
 {% extends "reports/base.html" %}
-{% block head %}{% if run.is_busy %}<meta http-equiv="refresh" content="4">{% endif %}{% endblock %}
 {% block content %}
 <div class="row" style="justify-content:space-between">
   <h1 style="margin:0">{{ run.project.client.name }} / {{ run.project.name }} - {{ run.period|date:"F Y" }}</h1>
@@ -10,7 +9,14 @@
   {% if run.sent_at %} · dikirim {{ run.sent_at|date:"d/m/Y H:i" }} ke {{ run.sent_to }}{% endif %}</p>
 
 {% if run.is_busy %}
-  <div class="card">Laporan sedang dibuat, halaman ini akan diperbarui otomatis.<pre>{{ run.log }}</pre></div>
+  <div class="card progress" data-progress-id="{{ run.pk }}">
+    <div class="top"><strong data-label>{{ run.progress_label|default:"Menunggu giliran" }}</strong>
+      <span class="big" data-pct>{{ run.progress }}%</span></div>
+    <div class="bar" role="progressbar" aria-label="Progres pembuatan laporan" aria-valuemin="0" aria-valuemax="100"
+         aria-valuenow="{{ run.progress }}"><div class="fill" data-fill style="width:{{ run.progress }}%"></div></div>
+    <div class="muted">Berjalan <span data-elapsed>-</span> · Estimasi selesai <span data-eta>menghitung estimasi…</span></div>
+    <p class="muted" style="margin:4px 0 0">Halaman akan terbuka otomatis setelah laporan selesai.</p>
+  </div>
 {% elif run.status == "failed" %}
   <div class="card"><div class="msg error">{{ run.error }}</div><details><summary>Log</summary><pre>{{ run.log }}</pre></details></div>
 {% endif %}

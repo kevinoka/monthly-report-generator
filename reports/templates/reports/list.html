@@ -19,7 +19,14 @@
       <td>{{ r.period|date:"F Y" }}</td>
       <td>{{ r.project.client.name }}</td>
       <td>{{ r.project.name }}</td>
-      <td><span class="badge s-{{ r.status }}">{{ r.get_status_display }}</span></td>
+      <td>{% if r.is_busy %}
+        <div class="progress small" data-progress-id="{{ r.pk }}">
+          <div class="top"><span data-label>{{ r.progress_label|default:"Menunggu giliran" }}</span><strong data-pct>{{ r.progress }}%</strong></div>
+          <div class="bar" role="progressbar" aria-label="Progres" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ r.progress }}">
+            <div class="fill" data-fill style="width:{{ r.progress }}%"></div></div>
+          <span class="muted" data-eta>menghitung estimasi…</span>
+        </div>
+      {% else %}<span class="badge s-{{ r.status }}">{{ r.get_status_display }}</span>{% endif %}</td>
       <td class="num">{% if r.summary.sla %}{{ r.summary.sla.actual }}%{% else %}-{% endif %}</td>
       <td class="muted">{{ r.created_at|date:"d/m/Y H:i" }}<br>{{ r.created_by|default:"jadwal otomatis" }}</td>
       <td><a href="{% url 'reports:detail' r.pk %}">Buka</a></td>

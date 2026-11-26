@@ -2,7 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.core.exceptions import PermissionDenied
 from django.db.models import Q
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -11,6 +11,7 @@ from core.models import Client
 
 from .forms import GenerateForm, SendForm
 from .models import ReportRun
+from .progress import payload
 from .services import builder, mailer
 
 
@@ -123,3 +124,19 @@ def send(request, pk):
     else:
         messages.success(request, f"Laporan terkirim ke {run.sent_to}.")
     return redirect("reports:detail", pk)
+
+
+@login_required
+@permission_required("reports.view_reportrun", raise_exception=True)
+def status(request, pk):
+    """Polled by the detail page while a report is being generated."""
+    return JsonResponse(payload(get_object_or_404(ReportRun, pk=pk)))
+
+
+@login_required
+@permission_required("reports.view_reportrun", raise_exception=True)
+def status_many(request):
+    """Polled by the list page for rows that are still being generated (?ids=1,2,3)."""
+    ids = [int(x) for x in request.GET.get("ids", "").split(",") if x.strip().isdigit()][:50]
+    runs = ReportRun.objects.filter(pk__in=ids)
+    return JsonResponse({"runs": [payload(r) for r in runs]})
