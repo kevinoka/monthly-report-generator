@@ -125,6 +125,10 @@ class Component(models.Model):
     name = models.CharField("nama", max_length=200)
     hostname = models.CharField(max_length=200, blank=True)
     ip_address = models.CharField("IP address", max_length=100, blank=True)
+    # Current size, shown in the report so recommendations ("add vCPU") have context
+    vcpu = models.PositiveSmallIntegerField("vCPU", null=True, blank=True)
+    memory_gb = models.DecimalField("memori (GB)", max_digits=7, decimal_places=1, null=True, blank=True)
+    disk_gb = models.PositiveIntegerField("disk (GB)", null=True, blank=True)
     prometheus_selector = models.CharField(
         "selector Prometheus", max_length=300,
         help_text='Label selector tanpa kurung kurawal. VM: instance="10.0.0.5:9100". '

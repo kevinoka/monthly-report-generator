@@ -56,7 +56,7 @@ class ForecastTests(TestCase):
         series = hourly([5.0] * 31, noise=0.5)
         fc = forecasting.forecast(series, "cpu")
         a = forecasting.assess("vm", "cpu", forecasting.month_stats(series), fc, date(2026, 11, 1))
-        self.assertEqual(a.status, "Underutilized")
+        self.assertEqual(a.status, "Utilisasi Rendah")
 
 
 class JiraParsingTests(TestCase):

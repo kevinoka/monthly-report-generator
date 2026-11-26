@@ -12,9 +12,10 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.dates as mdates  # noqa: E402
 import matplotlib.pyplot as plt  # noqa: E402
+import matplotlib.ticker as mticker  # noqa: E402
 import pandas as pd  # noqa: E402
 
-from .formatting import num  # noqa: E402
+from .formatting import MONTHS_ID, num  # noqa: E402
 
 SURFACE = "#fcfcfb"
 TEXT = "#0b0b0b"
@@ -57,12 +58,10 @@ def _png(fig) -> BytesIO:
     return buf
 
 
-def usage_chart(series: pd.Series, title: str, unit_note: str = "%") -> BytesIO:
+def _draw_usage(ax, series: pd.Series, title: str, unit_note: str = "%", xlabel: bool = True) -> None:
     """One metric over the reporting month, with average and peak annotated."""
-    fig, ax = plt.subplots(figsize=(WIDTH_IN, 1.75))
-    fig.patch.set_facecolor(SURFACE)
     _axes_style(ax)
-    s = series.dropna()
+    s = series.dropna() if series is not None else pd.Series(dtype=float)
     if s.empty:
         ax.text(0.5, 0.5, "Data tidak tersedia", ha="center", va="center", color=TEXT_2, transform=ax.transAxes)
         ax.set_yticks([])
@@ -82,18 +81,32 @@ def usage_chart(series: pd.Series, title: str, unit_note: str = "%") -> BytesIO:
         ax.annotate(f"puncak {num(peak)}{unit_note}", (peak_t, peak), xytext=(-4 if near_right else 4, 3),
                     textcoords="offset points", fontsize=6.5, color=TEXT, va="bottom",
                     ha="right" if near_right else "left", bbox=LABEL_BOX)
-        top = max(100.0, peak * 1.08) if unit_note == "%" else peak * 1.1
+        top = max(100.0, peak * 1.12) if unit_note == "%" else peak * 1.12
         ax.set_ylim(0, top)
         ax.set_xlim(s.index[0], s.index[-1])
         ax.xaxis.set_major_locator(mdates.DayLocator(interval=2, tz=s.index.tz))
         ax.xaxis.set_major_formatter(mdates.DateFormatter("%d", tz=s.index.tz))
-        ax.set_xlabel("Tanggal", fontsize=6.5)
+        if xlabel:
+            ax.set_xlabel("Tanggal", fontsize=6.5)
     ax.set_title(title, loc="left", fontsize=7.5, fontweight="bold", pad=4)
-    fig.tight_layout(pad=0.4)
+
+
+def usage_panel(panels: list[tuple[pd.Series, str]]) -> BytesIO:
+    """CPU / memory / disk stacked in one image so a component fits on one page."""
+    fig, axes = plt.subplots(len(panels), 1, figsize=(WIDTH_IN, 1.42 * len(panels)))
+    fig.patch.set_facecolor(SURFACE)
+    for k, (ax, (series, title)) in enumerate(zip(axes, panels)):
+        _draw_usage(ax, series, title, xlabel=(k == len(panels) - 1))
+    fig.tight_layout(pad=0.4, h_pad=0.9)
     return _png(fig)
 
 
-def forecast_chart(panels: list[dict]) -> BytesIO:
+def _month_label(x, _pos=None) -> str:
+    d = mdates.num2date(x)
+    return MONTHS_ID[d.month - 1][:3]
+
+
+def forecast_chart(panels: list[dict], title: str = "") -> BytesIO:
     """Small multiples: one panel per metric, daily p95 history + forecast + 80% upper bound.
 
     Each panel dict: title, hist (Series daily p95), fc (Series), upper (Series),
@@ -120,10 +133,12 @@ def forecast_chart(panels: list[dict]) -> BytesIO:
             for thr, color in ((p["attention"], THRESH_ATT), (p["critical"], THRESH_CRIT)):
                 ax.axhline(thr, color=color, linewidth=0.6, linestyle=(0, (1, 2)))
             ax.xaxis.set_major_locator(mdates.MonthLocator())
-            ax.xaxis.set_major_formatter(mdates.DateFormatter("%b"))
+            ax.xaxis.set_major_formatter(mticker.FuncFormatter(_month_label))
             ax.tick_params(axis="both", labelsize=6)
         ax.set_title(p["title"], loc="left", fontsize=7.5, fontweight="bold", pad=4)
-    fig.text(0.005, 0.01, "Garis utuh: puncak harian (p95) aktual · putus-putus: prakiraan · area: batas atas 80% "
-             "· garis titik: ambang perhatian/kritis", fontsize=5.8, color=TEXT_2)
-    fig.tight_layout(pad=0.4, rect=(0, 0.06, 1, 1))
+    if title:
+        fig.suptitle(title, x=0.005, ha="left", fontsize=8, fontweight="bold", color=TEXT)
+    fig.text(0.005, 0.01, "Garis utuh: puncak harian aktual · putus-putus: prakiraan · area: rentang prakiraan "
+             "· garis titik: batas perhatian (kuning) dan kritis (merah)", fontsize=5.8, color=TEXT_2)
+    fig.tight_layout(pad=0.4, rect=(0, 0.06, 1, 0.97 if title else 1))
     return _png(fig)

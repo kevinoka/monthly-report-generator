@@ -17,7 +17,6 @@ import sys
 from pathlib import Path
 
 import docx
-from docx.enum.text import WD_BREAK
 from docx.oxml.ns import qn
 from docx.shared import Cm
 from docx.table import Table, _Row
@@ -32,6 +31,7 @@ DEFAULT_SAMPLE = (
 DEFAULT_OUTPUT = ROOT / "templates" / "report_template.docx"
 PROVIDER_LOGO = ROOT / "templates" / "assets" / "idxsti-logo.png"
 CLOUD_LOGO = ROOT / "templates" / "assets" / "cloudx-logo.png"
+COVER_HEADER_DISTANCE_CM = 0.9  # sample: 1.27 cm with a one-line text "Logo"
 
 
 # --------------------------------------------------------------------------- helpers
@@ -180,6 +180,28 @@ def set_table_font_size(table, half_points: int) -> None:
         el.set(qn("w:val"), str(half_points))
 
 
+def tidy_rows(table) -> None:
+    """Centre cell content vertically and drop fixed row heights (rows size to content)."""
+    for tr in table._tbl.findall(qn("w:tr")):
+        trpr = tr.find(qn("w:trPr"))
+        if trpr is not None:
+            for h in trpr.findall(qn("w:trHeight")):
+                trpr.remove(h)
+        for tc in tr.findall(qn("w:tc")):
+            tcpr = tc.get_or_add_tcPr()
+            for v in tcpr.findall(qn("w:vAlign")):
+                tcpr.remove(v)
+            v = tcpr.makeelement(qn("w:vAlign"), {qn("w:val"): "center"})
+            tcpr.append(v)
+            for p in tc.findall(qn("w:p")):
+                ppr = p.find(qn("w:pPr"))
+                if ppr is None:
+                    continue
+                for sp in ppr.findall(qn("w:spacing")):
+                    sp.set(qn("w:before"), "40")
+                    sp.set(qn("w:after"), "40")
+
+
 def set_header_row(table, headers: list[str]) -> None:
     for cell, h in zip(table.rows[0].cells, headers):
         cell_text(cell, h)
@@ -190,6 +212,58 @@ def put_picture(paragraph: Paragraph, image: Path, width) -> None:
     for r in list(paragraph.runs):
         r._r.getparent().remove(r._r)
     paragraph.add_run().add_picture(str(image), width=width)
+
+
+def set_rich(paragraph: Paragraph, parts: list[tuple[str, bool]]) -> None:
+    """Set text as runs, italic where flagged, all copying the first run's formatting."""
+    base = paragraph.runs[0]._r if paragraph.runs else paragraph.add_run()._r
+    template = copy.deepcopy(base)
+    for r in list(paragraph.runs):
+        r._r.getparent().remove(r._r)
+    for text, italic in parts:
+        r_el = copy.deepcopy(template)
+        for t in r_el.findall(qn("w:t")) + r_el.findall(qn("w:br")) + r_el.findall(qn("w:tab")):
+            r_el.remove(t)
+        paragraph._p.append(r_el)
+        from docx.text.run import Run
+
+        run = Run(r_el, paragraph)
+        run.text = text
+        run.italic = italic or None
+
+
+def italic_parts(text: str) -> list[tuple[str, bool]]:
+    """'Daftar *Virtual Machine* X' -> [('Daftar ', False), ('Virtual Machine', True), (' X', False)]."""
+    out = []
+    for i, chunk in enumerate(text.split("*")):
+        if chunk:
+            out.append((chunk, i % 2 == 1))
+    return out
+
+
+def set_label_line(paragraph: Paragraph, label: str, value: str, tab_cm: float = 5.5) -> None:
+    """'Label<TAB>: value' with a fixed tab stop, label may contain *italic* parts."""
+    set_rich(paragraph, italic_parts(label) + [("\t: " + value, False)])
+    paragraph.paragraph_format.tab_stops.add_tab_stop(Cm(tab_cm))
+
+
+def add_columns(table, n: int) -> None:
+    """Append n columns by copying the last column (grid and every row)."""
+    grid = table._tbl.tblGrid
+    last_col = grid.findall(qn("w:gridCol"))[-1]
+    for _ in range(n):
+        grid.append(copy.deepcopy(last_col))
+        for tr in table._tbl.findall(qn("w:tr")):
+            tr.append(copy.deepcopy(tr.findall(qn("w:tc"))[-1]))
+
+
+def remove_columns(table, indexes: list[int]) -> None:
+    grid = table._tbl.tblGrid
+    cols = grid.findall(qn("w:gridCol"))
+    for i in sorted(indexes, reverse=True):
+        grid.remove(cols[i])
+        for tr in table._tbl.findall(qn("w:tr")):
+            tr.remove(tr.findall(qn("w:tc"))[i])
 
 
 # --------------------------------------------------------------------------- main
@@ -218,6 +292,7 @@ def build(sample: Path, output: Path) -> None:
     set_text(cover_name.rows[0].cells[1].paragraphs[0], "{{ client_name }}")
     set_text(cover_name.rows[0].cells[1].paragraphs[1], "{{ project_name }}")
     set_text(cover_period.rows[1].cells[1].paragraphs[0], "{{ period_label }}")
+    set_text(cover_period.rows[0].cells[1].paragraphs[0], "Periode Laporan")
 
     # ---- headers: "Prepared by PT. DEF" and the provider logo
     done = set()
@@ -234,14 +309,24 @@ def build(sample: Path, output: Path) -> None:
             for p_el in list(hdr._element.iter(qn("w:p"))):
                 para = Paragraph(p_el, hdr)
                 replace_across_runs(para, "PT. DEF", "{{ provider_name }}")
+                replace_across_runs(para, "Prepared by", "Disusun oleh")
                 if para.text.strip() == "Logo":
                     put_picture(para, PROVIDER_LOGO, logo_width)
+            # lighter CONFIDENTIAL watermark (was 50% opacity)
+            for fill in hdr._element.iter("{urn:schemas-microsoft-com:vml}fill"):
+                fill.set("opacity", ".22")
+
+    # The logo is taller than the word "Logo" it replaces, which makes the cover header
+    # taller and pushes the cover down. Pull the cover header up by the same amount so the
+    # cover keeps the sample's layout. Section 0 holds only the cover.
+    d.sections[0].header_distance = Cm(COVER_HEADER_DISTANCE_CM)
 
     # ---- cover footer: "Powered by / Logo Cloud" -> CloudX logo
     for section in d.sections:
         for ftr in (section.footer, section.first_page_footer, section.even_page_footer):
             for p_el in list(ftr._element.iter(qn("w:p"))):
                 para = Paragraph(p_el, ftr)
+                replace_across_runs(para, "Powered by", "Didukung oleh")
                 if para.text.strip() == "Logo Cloud":
                     put_picture(para, CLOUD_LOGO, Cm(4.2))
 
@@ -276,7 +361,7 @@ def build(sample: Path, output: Path) -> None:
     anchor = P[i_status - 1]._p  # blank paragraph before the heading
     hp = clone_paragraph_after(anchor, h1, "Ringkasan Eksekutif")
     t1 = tag_paragraph_after(hp._p, body_para, "{%p for s in summary_paragraphs %}")
-    sp = clone_paragraph_after(t1._p, body_para, "{{ s }}")
+    sp = clone_paragraph_after(t1._p, body_para, "{{r s }}")  # RichText: italic English terms
     t2 = tag_paragraph_after(sp._p, body_para, "{%p endfor %}")
     clone_paragraph_after(t2._p, P[i_status - 1], "")
 
@@ -284,17 +369,19 @@ def build(sample: Path, output: Path) -> None:
     def line(prefix: str) -> Paragraph:
         return P[find_para(lambda p: p.text.startswith(prefix), i_status)]
 
-    replace_after_colon(
-        line("Period date"), "{{ period_start_label }} to {{ period_end_label }}"
-    )
-    replace_after_colon(line("Total downtime"), "{{ sla.downtime_label }}")
-    replace_after_colon(line("Agreed availability"), "{{ sla.target_label }}")
-    actual = line("Actual availability")
-    replace_after_colon(actual, "{{ sla.actual_label }}")
+    sla_lines = [
+        (line("Period date"), "Periode", "{{ period_start_label }} s.d. {{ period_end_label }}"),
+        (line("Total downtime"), "Total *downtime*", "{{ sla.downtime_label }}"),
+        (line("Agreed availability"), "Target ketersediaan (SLA)", "{{ sla.target_label }}"),
+        (line("Actual availability"), "Ketersediaan aktual", "{{ sla.actual_label }}"),
+    ]
+    for para, label, value in sla_lines:
+        set_label_line(para, label, value)
+    actual = sla_lines[-1][0]
     # keep the heading and the four SLA lines on one page
     P[i_status].paragraph_format.keep_with_next = True
-    for prefix in ("Period date", "Total downtime", "Agreed availability"):
-        line(prefix).paragraph_format.keep_with_next = True
+    for para, _, _ in sla_lines[:-1]:
+        para.paragraph_format.keep_with_next = True
 
     # downtime detail table (only rendered when there is downtime)
     i_vm = heading("Daftar Virtual Machine")
@@ -304,9 +391,8 @@ def build(sample: Path, output: Path) -> None:
     incident_tbl = T[5]
     plain = P[find_para(lambda p: p.text.startswith("Data yang"))]
     t_if = tag_paragraph_after(actual._p, plain, "{%p if sla.entries %}")
-    cap = clone_paragraph_after(
-        t_if._p, plain, "Rincian downtime yang tercatat pada periode ini:"
-    )
+    cap = clone_paragraph_after(t_if._p, plain, "")
+    set_rich(cap, italic_parts("Rincian *downtime* yang tercatat pada periode ini:"))
     dt_tbl = copy.deepcopy(incident_tbl._tbl)
     cap._p.addnext(dt_tbl)
     dt = Table(dt_tbl, incident_tbl._parent)
@@ -342,15 +428,26 @@ def build(sample: Path, output: Path) -> None:
     tag_paragraph_after(dt_tbl, plain, "{%p endif %}")
 
     # ---- 3. Daftar Virtual Machine
-    set_text(P[i_vm], "Daftar Virtual Machine {{ project_short }}")
+    set_rich(P[i_vm], italic_parts("Daftar *Virtual Machine* {{ project_short }}"))
+    vm_tbl = T[3]
+    add_columns(vm_tbl, 3)  # vCPU, memory, disk
+    for cell, label in zip(vm_tbl.rows[0].cells,
+                           ["Nama *Virtual Machine*", "*Hostname*", "Alamat IP",
+                            "vCPU", "Memori (GB)", "Disk (GB)"]):
+        cell_text(cell, "")
+        set_rich(cell.paragraphs[0], italic_parts(label))
     make_loop_table(
-        T[3],
+        vm_tbl,
         "c",
         "components",
-        ["{{ c.name }}", "{{ c.hostname }}", "{{ c.ip_address }}"],
+        ["{{ c.name }}", "{{ c.hostname }}", "{{ c.ip_address }}",
+         "{{ c.vcpu }}", "{{ c.memory_gb }}", "{{ c.disk_gb }}"],
     )
+    set_col_widths(vm_tbl, [2350, 2150, 1700, 900, 1100, 1050])
 
     # ---- 4. Layanan Tambahan
+    for cell, label in zip(T[4].rows[0].cells[2:], ["Tanggal Mulai", "Tanggal Berakhir"]):
+        cell_text(cell, label)
     make_loop_table(
         T[4],
         "s",
@@ -370,47 +467,42 @@ def build(sample: Path, output: Path) -> None:
     for p in P[i_vm2 : i_incident - 1]:
         p._p.getparent().remove(p._p)
 
+    # One page per component: heading, one combined usage chart (CPU / memory / disk
+    # stacked), the forecast chart and a short narrative. The per-metric sub-headings
+    # of the original are dropped; the chart panels carry their own titles.
     vm_heading = P[i_vm1]
-    set_text(vm_heading, "Summary Penggunaan Resource {{ c.name }}")
-    pb = clone_paragraph_after(vm_heading._p.getprevious(), plain, "")
-    pb.runs[0].add_break(WD_BREAK.PAGE)
-    tag_paragraph_after(pb._p.getprevious(), plain, "{%p for c in components %}")
+    set_rich(vm_heading, italic_parts("Ringkasan Penggunaan *Resource* {{ c.name }}"))
+    # "page break before" on the heading instead of a break paragraph: a break paragraph
+    # after an already-full page produces an empty page
+    vm_heading.paragraph_format.page_break_before = True
+    tag_paragraph_after(vm_heading._p.getprevious(), plain, "{%p for c in components %}")
 
     img_paras = [p for p in P[i_vm1:i_vm2] if p._p.xpath(".//a:blip")]
-    for p, key in zip(img_paras, ["cpu", "memory", "disk"]):
-        for r in list(p.runs):
-            r._r.getparent().remove(r._r)
-        p.add_run(f"{{{{ c.charts.{key} }}}}")
-
-    h2 = P[heading("Disk Usage Monitoring", level=2, start=i_vm1)]
-    last = img_paras[-1]
-    fh = clone_paragraph_after(last._p, h2, "Ringkasan & Prakiraan")
-    fimg = clone_paragraph_after(fh._p, last, "{{ c.charts.forecast }}")
-    fnar = clone_paragraph_after(fimg._p, body_para, "{{ c.narrative }}")
+    first_img = img_paras[0]
+    for r in list(first_img.runs):
+        r._r.getparent().remove(r._r)
+    first_img.add_run("{{ c.charts.usage }}")
+    # drop everything else of the example section (sub-headings, other charts, blanks)
+    for p in P[i_vm1 + 1:i_vm2]:
+        if p is not first_img:
+            p._p.getparent().remove(p._p)
+    fimg = clone_paragraph_after(first_img._p, first_img, "{{ c.charts.forecast }}")
+    fnar = clone_paragraph_after(fimg._p, body_para, "{{r c.narrative }}")
     tag_paragraph_after(fnar._p, plain, "{%p endfor %}")
 
     # ---- new: Prakiraan & Rekomendasi Resource (before "Daftar Insiden")
     inc_h = P[i_incident]
-    pb2 = clone_paragraph_after(inc_h._p.getprevious(), plain, "")
-    pb2.runs[0].add_break(WD_BREAK.PAGE)
-    fh1 = clone_paragraph_after(pb2._p, inc_h, "Prakiraan & Rekomendasi Resource")
-    fi = clone_paragraph_after(fh1._p, body_para, "{{ forecast_intro }}")
+    fh1 = clone_paragraph_after(inc_h._p.getprevious(), inc_h, "")
+    fh1.paragraph_format.page_break_before = True
+    set_rich(fh1, italic_parts("Prakiraan & Rekomendasi *Resource*"))
+    fi = clone_paragraph_after(fh1._p, body_para, "{{r forecast_intro }}")
     ft_xml = copy.deepcopy(incident_tbl._tbl)
     fi._p.addnext(ft_xml)
     ft = Table(ft_xml, incident_tbl._parent)
-    set_header_row(
-        ft,
-        [
-            "No",
-            "Resource",
-            "Metrik",
-            "Rata-rata",
-            "Puncak",
-            "Prakiraan rata-rata / batas atas",
-            "Status",
-            "Rekomendasi",
-        ],
-    )
+    remove_columns(ft, [3, 4])  # 8 -> 6 columns
+    set_header_row(ft, ["No", "", "CPU", "Memori", "Disk", "Rekomendasi"])
+    set_rich(ft.rows[0].cells[1].paragraphs[0], italic_parts("*Resource*"))
+    # one row per component; status cells are RichText (coloured status word)
     make_loop_table(
         ft,
         "f",
@@ -418,18 +510,16 @@ def build(sample: Path, output: Path) -> None:
         [
             "{{ loop.index }}",
             "{{ f.component }}",
-            "{{ f.metric }}",
-            "{{ f.avg }}",
-            "{{ f.peak }}",
-            "{{ f.forecast }}",
-            "{{ f.status }}",
-            "{{ f.recommendation }}",
+            "{{r f.cpu }}",
+            "{{r f.memory }}",
+            "{{r f.disk }}",
+            "{{r f.recommendation }}",
         ],
     )
-    set_col_widths(ft, [560, 1300, 950, 950, 950, 1250, 1050, 2240])
-    note = clone_paragraph_after(ft_xml, plain, "{{ forecast_note }}")
-    pb3 = clone_paragraph_after(note._p, plain, "")
-    pb3.runs[0].add_break(WD_BREAK.PAGE)
+    set_col_widths(ft, [520, 1800, 1050, 1050, 1050, 3780])
+    tidy_rows(ft)
+    clone_paragraph_after(ft_xml, plain, "{{ forecast_note }}")
+    inc_h.paragraph_format.page_break_before = True
 
     # ---- Daftar Insiden / Daftar Aktivitas Permintaan
     make_loop_table(

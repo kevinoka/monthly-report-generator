@@ -27,7 +27,7 @@ import pandas as pd
 from django.conf import settings
 
 MODEL_LABELS = {"naive": "Naive (rata-rata 7 hari)", "linear": "Tren linear", "holt_winters": "Holt-Winters"}
-METRIC_LABELS = {"cpu": "CPU", "memory": "Memory", "disk": "Disk"}
+METRIC_LABELS = {"cpu": "CPU", "memory": "Memori", "disk": "Disk"}
 Z80 = 1.2816
 
 
@@ -61,7 +61,7 @@ class Forecast:
 
 @dataclass
 class Assessment:
-    status: str          # Normal | Perlu Perhatian | Kritis | Underutilized | -
+    status: str          # Normal | Perlu Perhatian | Kritis | Utilisasi Rendah | -
     recommendation: str
 
 
@@ -193,7 +193,7 @@ def assess(kind: str, metric: str, stats: MonthStats, fc: Forecast, period_end: 
 
     attention, critical = settings.FORECAST_THRESHOLDS[metric]
     k8s = kind == "k8s"
-    res = {"cpu": "vCPU", "memory": "RAM", "disk": "kapasitas disk"}[metric]
+    res = {"cpu": "vCPU", "memory": "memori (RAM)", "disk": "kapasitas disk"}[metric]
 
     if fc.days_to_critical:
         if stats.p95 is not None and stats.p95 >= critical:
@@ -201,9 +201,9 @@ def assess(kind: str, metric: str, stats: MonthStats, fc: Forecast, period_end: 
         else:
             lead = f"Diperkirakan mencapai {critical:.0f}% sekitar {_when(period_end, fc.days_to_critical)}."
         if metric == "disk":
-            action = f"Rencanakan penambahan {'volume' if k8s else 'kapasitas disk'} atau housekeeping data."
+            action = f"Rencanakan penambahan {'*volume*' if k8s else 'kapasitas disk'} atau pembersihan data (*housekeeping*)."
         elif k8s:
-            action = f"Naikkan request {METRIC_LABELS[metric]} pod untuk mencegah throttling/OOM."
+            action = f"Naikkan *request* {METRIC_LABELS[metric]} *pod* untuk mencegah *throttling*/*out of memory*."
         else:
             action = f"Pertimbangkan penambahan {res}."
         return Assessment("Kritis", f"{lead} {action}")
@@ -213,15 +213,16 @@ def assess(kind: str, metric: str, stats: MonthStats, fc: Forecast, period_end: 
         return Assessment(
             "Perlu Perhatian",
             f"Diperkirakan melewati {attention:.0f}% sekitar {when}. Pantau tren dan siapkan rencana penambahan "
-            f"{'resource request' if k8s else res}.",
+            f"{'*resource request*' if k8s else res}.",
         )
 
     low = settings.FORECAST_UNDERUTILISED_P95
     if metric != "disk" and stats.p95 is not None and stats.p95 < low and (fc.p95_forecast_max or 0) < low + 5:
         if k8s:
-            msg = "Pemakaian jauh di bawah resource request. Pertimbangkan menurunkan request untuk efisiensi biaya."
+            msg = ("Pemakaian jauh di bawah *resource request*. Pertimbangkan menurunkan *request* "
+                   "untuk efisiensi biaya.")
         else:
             msg = f"Utilisasi rendah. Pertimbangkan pengurangan {res} untuk efisiensi biaya."
-        return Assessment("Underutilized", msg)
+        return Assessment("Utilisasi Rendah", msg)
 
-    return Assessment("Normal", f"Memadai untuk {fc.horizon_days} hari ke depan.")
+    return Assessment("Normal", f"Kapasitas memadai untuk {fc.horizon_days} hari ke depan.")

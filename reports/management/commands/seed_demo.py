@@ -33,12 +33,17 @@ class Command(BaseCommand):
             defaults={"short_name": "XYZ", "jira_base_jql": 'project = SD AND labels = "client-abc"',
                       "recipients_to": "it-ops@abc.co.id", "recipients_cc": ""},
         )
+        specs = {1: (4, 8, 100), 2: (8, 16, 200), 3: (2, 4, 80)}
         for i in (1, 2, 3):
-            Component.objects.get_or_create(
+            vcpu, mem, disk = specs[i]
+            comp, _ = Component.objects.get_or_create(
                 project=project, name=f"xyz-vm-{i}",
                 defaults={"hostname": f"xyz-vm-{i}", "ip_address": "139.255.xx.xx", "sort_order": i,
                           "prometheus_selector": f'instance="xyz-vm-{i}:9100"'},
             )
+            if comp.vcpu is None:
+                comp.vcpu, comp.memory_gb, comp.disk_gb = vcpu, mem, disk
+                comp.save(update_fields=["vcpu", "memory_gb", "disk_gb"])
         Component.objects.get_or_create(
             project=project, name="xyz-gke-autopilot",
             defaults={"kind": Component.Kind.K8S, "hostname": "xyz-gke-autopilot", "sort_order": 4,

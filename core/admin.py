@@ -20,8 +20,8 @@ class ClientAdmin(admin.ModelAdmin):
 
 class ComponentInline(admin.TabularInline):
     model = Component
-    fields = ("sort_order", "kind", "name", "hostname", "ip_address", "prometheus_selector",
-              "is_critical", "sla_weight", "is_active")
+    fields = ("sort_order", "kind", "name", "hostname", "ip_address", "vcpu", "memory_gb", "disk_gb",
+              "prometheus_selector", "is_critical", "sla_weight", "is_active")
     extra = 0
 
 
